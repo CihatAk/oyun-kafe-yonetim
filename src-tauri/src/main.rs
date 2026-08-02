@@ -9,6 +9,7 @@ mod commands;
 
 use db::AppState;
 use commands::*;
+use tauri::Manager;
 
 fn main() {
     let app_state = AppState::new();
