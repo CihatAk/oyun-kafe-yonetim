@@ -14,6 +14,11 @@ fn main() {
     let app_state = AppState::new();
     tauri::Builder::default()
         .manage(app_state)
+        // Pencere gizli başlar; sayfa yüklendiğinde (stillerle birlikte) gösterilir.
+        // Böylece WebView2'nin ilk çizim gecikmesi beyaz ekran olarak görünmez.
+        .on_page_load(|window, _payload| {
+            let _ = window.show();
+        })
         .invoke_handler(tauri::generate_handler![
             stations::get_stations, stations::add_station, stations::update_station, stations::remove_station,
             sessions::start_session, sessions::end_session, sessions::get_active_sessions,
@@ -43,7 +48,7 @@ fn main() {
             web::get_web_info, web::get_sync_status,
             toggle_fullscreen,
         ])
-        .setup(|_app| {
+        .setup(|app| {
             let db_path = db::get_db_path();
             let port = std::env::var("OYUNKAFE_WEB_PORT")
                 .ok()
@@ -51,6 +56,14 @@ fn main() {
                 .unwrap_or(web::WEB_PORT);
             std::thread::spawn(move || web::run(db_path, port));
             sync::start();
+            // Güvenlik ağı: on_page_load tetiklenmezse pencereyi yine de göster
+            let handle = app.handle();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(6));
+                if let Some(w) = handle.get_window("main") {
+                    let _ = w.show();
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

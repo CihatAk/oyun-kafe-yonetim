@@ -4,33 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oyun Kafe Yönetim Paneli</title>
-    <script src="./tailwind.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        slate:   { 200: '#c9d1d9', 300: '#e6edf3', 400: '#8b949e', 500: '#6e7681', 600: '#30363d', 700: '#21262d', 800: '#161b22', 900: '#0d1117', 950: '#010409' },
-                        cyan:    { 200: '#a5d6ff', 300: '#79c0ff', 400: '#58a6ff', 500: '#388bfd', 600: '#1f6feb' },
-                        emerald: { 300: '#7ee787', 400: '#3fb950', 500: '#2ea043', 600: '#238636' },
-                        red:     { 200: '#ffa198', 300: '#ff7b72', 400: '#f85149', 500: '#b62324', 600: '#da3633', 700: '#f85149' },
-                        amber:   { 300: '#e3b341', 400: '#d29922', 500: '#d29922', 600: '#bb8009' },
-                        violet:  { 300: '#bc8cff', 400: '#a371f7', 500: '#8957e5', 600: '#8957e5' },
-                        purple:  { 300: '#bc8cff', 400: '#a371f7', 500: '#8957e5', 600: '#6e40c9' },
-                        blue:    { 300: '#79c0ff', 400: '#58a6ff', 500: '#1f6feb', 600: '#1f6feb' },
-                        yellow:  { 300: '#e3b341', 500: '#d29922', 600: '#bb8009' }
-                    }
-                }
-            }
-        };
-    </script>
+    <link rel="stylesheet" href="./tailwind.css">
     <script src="./chart.umd.min.js"></script>
     <style>
         html { color-scheme: dark; }
         * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; }
         body { background: #0d1117; color: #e6edf3; }
 
-        .glass { background: #161b22; backdrop-filter: none; border: 1px solid #30363d; }
+        .glass { background: #161b22; border: 1px solid #30363d; }
         .rounded-2xl { border-radius: 12px !important; }
         .rounded-xl { border-radius: 8px !important; }
         .rounded-lg { border-radius: 6px !important; }
@@ -49,6 +30,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 6px; }
         ::-webkit-scrollbar-thumb:hover { background: #6e7681; }
+        html { scrollbar-width: thin; scrollbar-color: #30363d transparent; }
         .drink-card { transition: border-color 0.2s, transform 0.2s; }
         .drink-card:hover { border-color: #58a6ff; transform: translateY(-1px); }
         .drink-cat-chip { background: #21262d; border: 1px solid #30363d; color: #8b949e; }
@@ -1193,7 +1175,7 @@
             var container = document.getElementById('toast-container');
             if (!container) return;
             var el = document.createElement('div');
-            el.className = 'toast px-4 py-3 rounded-lg shadow-lg text-sm font-medium ' + (type === 'error' ? 'bg-red-600 text-white' : type === 'warning' ? 'bg-yellow-600 text-white' : 'bg-emerald-600 text-white');
+            el.className = 'toast px-4 py-3 rounded-lg shadow-lg text-sm font-medium ' + (type === 'error' ? 'bg-red-600 text-white' : type === 'warning' ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white');
             el.textContent = msg;
             container.appendChild(el);
             setTimeout(function() {
@@ -1334,16 +1316,16 @@
                     const start = new Date(s.start_time);
                     const isPaused = fee.is_paused;
                     const tr = document.createElement('tr');
-                    const rowClass = fee.show_warning ? 'warning-flash border-yellow-500/30' : isPaused ? 'bg-yellow-500/5 border-yellow-500/20' : 'border-slate-700/30 hover:bg-slate-800/30';
+                    const rowClass = fee.show_warning ? 'warning-flash border-amber-500/30' : isPaused ? 'bg-amber-500/5 border-amber-500/20' : 'border-slate-700/30 hover:bg-slate-800/30';
                     tr.className = `border-b ${rowClass} transition`;
                     const statusBadge = isPaused
-                        ? '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded text-xs font-medium paused-badge">Duraklatıldı</span>'
+                        ? '<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-xs font-medium paused-badge">Duraklatıldı</span>'
                         : '<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs font-medium">Aktif</span>';
-                    const warnBadge = fee.show_warning ? `<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded text-xs font-medium">⚠️ ${fee.remaining_seconds > 0 ? Math.ceil(fee.remaining_seconds/60) + ' dk kaldı' : ''}</span>` : '';
+                    const warnBadge = fee.show_warning ? `<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-xs font-medium">⚠️ ${fee.remaining_seconds > 0 ? Math.ceil(fee.remaining_seconds/60) + ' dk kaldı' : ''}</span>` : '';
                     const autoBadge = fee.auto_end ? '<span class="px-2 py-0.5 bg-red-500/20 text-red-300 rounded text-xs font-medium">Süre doldu</span>' : '';
                     const pauseBtn = isPaused
                         ? `<button onclick="resumeSession('${s.station_id}')" class="px-2 py-1.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg text-xs font-medium transition" title="Sürdür">▶️</button>`
-                        : `<button onclick="pauseSession('${s.station_id}')" class="px-2 py-1.5 bg-yellow-600/80 hover:bg-yellow-500 rounded-lg text-xs font-medium transition" title="Duraklat">⏸️</button>`;
+                        : `<button onclick="pauseSession('${s.station_id}')" class="px-2 py-1.5 bg-amber-600/80 hover:bg-amber-500 rounded-lg text-xs font-medium transition" title="Duraklat">⏸️</button>`;
 
                     let drinkChips = '';
                     if (sessionDrinks.length > 0) {
@@ -1436,7 +1418,7 @@
                         </div>` : '';
                     const actionBtns = isActive ? `
                         <button onclick="openEndModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-medium transition">Sonlandır</button>
-                        ${sess.paused_at ? `<button onclick="resumeSession('${st.id}')" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm transition" title="Sürdür">▶️</button>` : `<button onclick="pauseSession('${st.id}')" class="px-3 py-2 bg-yellow-600/80 hover:bg-yellow-500 rounded-xl text-sm transition" title="Duraklat">⏸️</button>`}
+                         ${sess.paused_at ? `<button onclick="resumeSession('${st.id}')" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm transition" title="Sürdür">▶️</button>` : `<button onclick="pauseSession('${st.id}')" class="px-3 py-2 bg-amber-600/80 hover:bg-amber-500 rounded-xl text-sm transition" title="Duraklat">⏸️</button>`}
                     ` : `<button onclick="openStartModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm font-medium transition">Başlat</button>`;
                     card.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
