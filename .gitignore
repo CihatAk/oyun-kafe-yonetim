@@ -30,3 +30,9 @@ supabase/functions/panel/index.ts
 # Vercel deploy üretilenleri
 panel-deploy/
 .vercel/
+
+# Tauri signer keys (güvenlik)
+secretkey.txt
+publickey.txt
+*.key
+*.pub
