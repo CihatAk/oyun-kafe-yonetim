@@ -22,3 +22,11 @@ Thumbs.db
 # Geçici
 *.log
 .tmp/
+
+# Supabase CLI / deploy üretilenleri
+supabase/.temp/
+supabase/functions/panel/index.ts
+
+# Vercel deploy üretilenleri
+panel-deploy/
+.vercel/

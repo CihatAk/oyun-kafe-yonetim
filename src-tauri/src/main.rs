@@ -2,6 +2,8 @@
 
 mod models;
 mod db;
+mod queries;
+mod sync;
 mod web;
 mod commands;
 
@@ -48,6 +50,7 @@ fn main() {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(web::WEB_PORT);
             std::thread::spawn(move || web::run(db_path, port));
+            sync::start();
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -5,14 +5,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Local};
+use chrono::Local;
 use rusqlite::{params, Connection};
 use serde_json::json;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 use uuid::Uuid;
 
 use crate::commands::auth::hash_password;
-use crate::db::AppState;
 
 pub const WEB_PORT: u16 = 8747;
 const SALT: &str = "oyun-kafe-2026";
@@ -114,6 +113,18 @@ fn drop_token(tok: &str) {
     }
 }
 
+fn rendered_index() -> String {
+    let mut out = INDEX.to_string();
+    if let Some(raw) = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json")).ok() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            let url = v["url"].as_str().unwrap_or("");
+            let key = v["anon_key"].as_str().unwrap_or("");
+            out = out.replace("__SUPABASE_URL__", url).replace("__SUPABASE_ANON_KEY__", key);
+        }
+    }
+    out
+}
+
 fn handle_request(db_path: &Path, mut request: tiny_http::Request) {
     let method = request.method().clone();
     let url = request.url().to_string();
@@ -135,7 +146,7 @@ fn handle_request(db_path: &Path, mut request: tiny_http::Request) {
     }
 
     let resp: HttpResp = if url == "/" || url == "/index.html" || url.starts_with("/web") {
-        html_resp(200, INDEX)
+        html_resp(200, &rendered_index())
     } else if url.starts_with("/api/") {
         route_api(db_path, &method, &url, &body, auth.as_deref())
     } else {
@@ -232,248 +243,18 @@ fn login_handler(db_path: &Path, body: &str) -> HttpResp {
     )
 }
 
-fn scalar_i64(conn: &Connection, sql: &str, p: impl rusqlite::Params) -> i64 {
-    conn.query_row(sql, p, |r| r.get::<_, i64>(0)).unwrap_or(0)
-}
-
-fn scalar_f64(conn: &Connection, sql: &str, p: impl rusqlite::Params) -> f64 {
-    conn.query_row(sql, p, |r| r.get::<_, f64>(0)).unwrap_or(0.0)
-}
-
-fn session_fee(
-    conn: &Connection,
-    station_id: &str,
-    rate_type: &str,
-    start_str: &str,
-    paused_at: Option<&str>,
-    total_paused: i64,
-) -> (i64, i64, f64, bool) {
-    let st_type: String = conn
-        .query_row("SELECT COALESCE(station_type,'standard') FROM stations WHERE id = ?1", params![station_id], |r| r.get(0))
-        .unwrap_or_else(|_| "standard".into());
-    let start = DateTime::parse_from_rfc3339(start_str)
-        .map(|d| d.with_timezone(&Local))
-        .unwrap_or_else(|_| Local::now());
-    let now = Local::now();
-    let total_secs = now.signed_duration_since(start).num_seconds().max(0);
-    let is_paused = paused_at.is_some();
-    let mut eff_secs = total_secs;
-    if let Some(p) = paused_at {
-        if let Ok(pd) = DateTime::parse_from_rfc3339(p) {
-            let ps = now.signed_duration_since(pd.with_timezone(&Local)).num_seconds().max(0);
-            eff_secs = eff_secs.saturating_sub(ps);
-        }
-    }
-    eff_secs = eff_secs.saturating_sub(total_paused).max(0);
-    let mins = eff_secs / 60;
-    let secs = eff_secs % 60;
-    let pricing = AppState::load_pricing_conn(conn);
-    let per_min = if st_type == "vip" {
-        pricing.vip_per_minute
-    } else if rate_type == "nakit" {
-        pricing.cash_per_minute
-    } else {
-        pricing.card_per_minute
-    };
-    let round_mins = pricing.round_minutes.max(1);
-    let chunks = ((mins as f64) / (round_mins as f64)).ceil() as i64;
-    let rounded = chunks * round_mins;
-    let fee = (rounded as f64 * per_min).max(pricing.min_charge);
-    (mins, secs, fee, is_paused)
-}
-
 fn overview_handler(conn: &Connection, _user: &str) -> HttpResp {
-    let today = Local::now().date_naive().to_string();
-
-    let active = scalar_i64(conn, "SELECT COUNT(*) FROM active_sessions", []);
-    let idle = scalar_i64(conn, "SELECT COUNT(*) FROM stations WHERE status = 'idle'", []);
-    let total = scalar_i64(conn, "SELECT COUNT(*) FROM stations", []);
-    let vip_total = scalar_i64(conn, "SELECT COUNT(*) FROM stations WHERE station_type = 'vip'", []);
-    let vip_busy = scalar_i64(
-        conn,
-        "SELECT COUNT(*) FROM stations s JOIN active_sessions a ON a.station_id = s.id WHERE s.station_type = 'vip'",
-        [],
-    );
-    let today_rev = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1", params![today]);
-    let today_drinks = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE date(order_time) = ?1", params![today]);
-    let today_sessions = scalar_i64(conn, "SELECT COUNT(*) FROM session_history WHERE date(end_time) = ?1", params![today]);
-    let campaigns_active = scalar_i64(conn, "SELECT COUNT(*) FROM campaigns WHERE active = 1", []);
-    let packages_active = scalar_i64(conn, "SELECT COUNT(*) FROM packages WHERE active = 1", []);
-    let low_threshold: i64 = crate::commands::settings::get_setting_value(conn, "low_stock_threshold")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(5);
-
-    let mut stations: Vec<serde_json::Value> = Vec::new();
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT s.id, s.name, s.station_type, s.group_name, s.status, COALESCE(a.customer,''), a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0) FROM stations s LEFT JOIN active_sessions a ON a.station_id = s.id ORDER BY s.group_name, s.name",
-    ) {
-        if let Ok(rows) = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, Option<String>>(6)?,
-                row.get::<_, Option<String>>(7)?,
-                row.get::<_, i64>(8)?,
-            ))
-        }) {
-            for r in rows.flatten() {
-                let (id, name, stype, group, status, customer, start, paused_at, total_paused) = r;
-                let elapsed_min = if status == "active" {
-                    let (_m, _s, _f, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused);
-                    _m
-                } else {
-                    0
-                };
-                stations.push(json!({
-                    "id": id, "name": name, "type": stype, "group": group,
-                    "status": status, "customer": customer, "start_time": start,
-                    "elapsed_min": elapsed_min,
-                }));
-            }
-        }
-    }
-
-    let mut sessions: Vec<serde_json::Value> = Vec::new();
-    let mut live_estimate = 0.0f64;
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT station_id, station_name, customer, start_time, rate_type, paused_at, COALESCE(total_paused_seconds,0) FROM active_sessions",
-    ) {
-        if let Ok(rows) = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, Option<String>>(5)?,
-                row.get::<_, i64>(6)?,
-            ))
-        }) {
-            for r in rows.flatten() {
-                let (station_id, station_name, customer, start_time, rate_type, paused_at, total_paused) = r;
-                let (mins, _secs, fee, is_paused) =
-                    session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused);
-                live_estimate += fee;
-                let drink_total =
-                    scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE session_id = ?1", params![station_id]);
-                sessions.push(json!({
-                    "station_id": station_id, "station_name": station_name,
-                    "customer": customer, "rate_type": rate_type, "start_time": start_time,
-                    "is_paused": is_paused, "minutes": mins, "fee": fee,
-                    "drink_total": drink_total, "total": fee + drink_total,
-                }));
-            }
-        }
-    }
-
-    let mut low_stock: Vec<serde_json::Value> = Vec::new();
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT id, name, price, category, stock, emoji, min_stock FROM drinks WHERE stock >= 0 AND stock <= (CASE WHEN min_stock >= 0 THEN min_stock ELSE ?1 END) ORDER BY stock ASC",
-    ) {
-        if let Ok(rows) = stmt.query_map(params![low_threshold], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, f64>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, i64>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, i64>(6)?,
-            ))
-        }) {
-            for r in rows.flatten() {
-                let (id, name, price, category, stock, emoji, min_stock) = r;
-                low_stock.push(json!({ "id": id, "name": name, "price": price, "category": category, "stock": stock, "emoji": emoji, "min_stock": min_stock }));
-            }
-        }
-    }
-
-    json_resp(
-        200,
-        json!({
-            "server_time": Local::now().to_rfc3339(),
-            "today": today,
-            "summary": { "active": active, "idle": idle, "total": total, "vip_total": vip_total, "busy_vip": vip_busy },
-            "today_revenue": today_rev,
-            "today_drinks": today_drinks,
-            "today_sessions": today_sessions,
-            "live_estimate": live_estimate,
-            "low_stock_threshold": low_threshold,
-            "low_stock": low_stock,
-            "campaigns_active": campaigns_active,
-            "packages_active": packages_active,
-            "stations": stations,
-            "sessions": sessions,
-        }),
-    )
+    json_resp(200, crate::queries::overview(conn))
 }
 
 fn drinks_handler(conn: &Connection, _user: &str) -> HttpResp {
-    let mut items: Vec<serde_json::Value> = Vec::new();
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT id, name, price, category, stock, emoji, COALESCE(description,''), cost, min_stock, is_active FROM drinks ORDER BY is_active DESC, category, name",
-    ) {
-        if let Ok(rows) = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, f64>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, i64>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, String>(6)?,
-                row.get::<_, f64>(7)?,
-                row.get::<_, i64>(8)?,
-                row.get::<_, i64>(9)?,
-            ))
-        }) {
-            for r in rows.flatten() {
-                let (id, name, price, category, stock, emoji, description, cost, min_stock, is_active) = r;
-                items.push(json!({
-                    "id": id, "name": name, "price": price, "category": category,
-                    "stock": stock, "emoji": emoji, "description": description,
-                    "cost": cost, "min_stock": min_stock, "is_active": is_active,
-                }));
-            }
-        }
-    }
-    json_resp(200, json!(items))
+    json_resp(200, crate::queries::drinks(conn))
 }
 
 fn history_handler(conn: &Connection, _user: &str, limit: i64) -> HttpResp {
-    let mut items: Vec<serde_json::Value> = Vec::new();
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT station_name, customer, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0) FROM session_history ORDER BY end_time DESC LIMIT ?1",
-    ) {
-        if let Ok(rows) = stmt.query_map(params![limit], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, i64>(4)?,
-                row.get::<_, f64>(5)?,
-                row.get::<_, String>(6)?,
-                row.get::<_, f64>(7)?,
-            ))
-        }) {
-            for r in rows.flatten() {
-                let (station_name, customer, start_time, end_time, duration_minutes, total, payment_method, drink_total) = r;
-                items.push(json!({
-                    "station_name": station_name, "customer": customer,
-                    "start_time": start_time, "end_time": end_time,
-                    "duration_minutes": duration_minutes, "total": total,
-                    "payment_method": payment_method, "drink_total": drink_total,
-                }));
-            }
-        }
-    }
-    json_resp(200, json!(items))
+    json_resp(200, crate::queries::history(conn, limit))
 }
+
 
 #[tauri::command]
 pub fn get_web_info() -> Result<serde_json::Value, String> {
@@ -485,11 +266,18 @@ pub fn get_web_info() -> Result<serde_json::Value, String> {
     } else {
         format!("http://{}:{}", ip_str, port)
     };
+    let panel_url = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|v| v["url"].as_str().map(String::from))
+        .map(|_u| "https://panel-deploy-six.vercel.app".to_string())
+        .unwrap_or_default();
     Ok(json!({
         "port": port,
         "ip": ip_str,
         "localUrl": format!("http://127.0.0.1:{}", port),
         "lanUrl": lan_url,
-        "externalNote": "İnternetten erişim için bir tünel (örn. Cloudflare Tunnel) veya port yönlendirme gerekir."
+        "panelUrl": panel_url,
+        "externalNote": "İnternet paneli: tarayıcıda 'Panel adresi'ni açın (Supabase üzerinden, giriş gerektirmez)."
     }))
 }
