@@ -1,0 +1,24 @@
+# Rust build artifacts
+src-tauri/target/
+target/
+
+# Node (if ever used)
+node_modules/
+
+# Veritabanı ve yedekler (asla commit etme)
+*.sqlite
+*.sqlite3
+*.db
+backups/
+*-wal
+*-shm
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Geçici
+*.log
+.tmp/
