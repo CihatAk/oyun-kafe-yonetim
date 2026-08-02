@@ -153,6 +153,21 @@ pub fn migrate_db(conn: &Connection) {
             let _ = conn.execute_batch(&format!("ALTER TABLE {} ADD COLUMN {};", table, col_def));
         }
     }
+
+    migrate_versioned(conn);
+}
+
+const SCHEMA_VERSION: i64 = 1;
+
+fn migrate_versioned(conn: &Connection) {
+    let current: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap_or(0);
+    if current < SCHEMA_VERSION {
+        // Sürüm 1: kullanıcı şifreleri Argon2 + kişisel tuz kullanımına geçti
+        // (şema değişikliği gerekmez; PHC dizesi tuzu içinde barındırır)
+        let _ = conn.execute_batch(&format!("PRAGMA user_version = {}", SCHEMA_VERSION));
+    }
 }
 
 pub fn seed_defaults(conn: &Connection) {
@@ -170,8 +185,7 @@ pub fn seed_defaults(conn: &Connection) {
     }
     let uc: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0)).unwrap_or(0);
     if uc == 0 {
-        let salt = "oyun-kafe-2026";
-        let hash = crate::commands::auth::hash_password("admin123", salt);
+        let hash = crate::commands::auth::make_hash("admin123");
         conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, created_at) VALUES (?1, 'admin', ?2, 'Yönetici', 'admin', 1, ?3)",
             params![Uuid::new_v4().to_string(), hash, Local::now().to_rfc3339()]).unwrap();
     }

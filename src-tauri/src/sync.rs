@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
@@ -13,7 +14,35 @@ use crate::queries;
 
 const SYNC_SECONDS: u64 = 10;
 const STALE_AFTER_SECONDS: i64 = 30;
-const HISTORY_LIMIT: i64 = 50;
+const HISTORY_SYNC_DAYS: i64 = 30;
+
+#[derive(Clone, serde::Serialize)]
+pub struct SyncStatus {
+    pub ok: bool,
+    pub last_at: Option<String>,
+    pub last_error: Option<String>,
+}
+
+static STATUS: Mutex<Option<SyncStatus>> = Mutex::new(None);
+
+pub fn current_status() -> SyncStatus {
+    STATUS
+        .lock()
+        .map(|g| g.clone())
+        .ok()
+        .flatten()
+        .unwrap_or(SyncStatus { ok: false, last_at: None, last_error: Some("durum kilitlenemedi".into()) })
+}
+
+fn set_status(ok: bool, err: Option<String>) {
+    if let Ok(mut g) = STATUS.lock() {
+        *g = Some(SyncStatus {
+            ok,
+            last_at: Some(Local::now().to_rfc3339()),
+            last_error: err,
+        });
+    }
+}
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -25,8 +54,13 @@ struct SupabaseConfig {
 
 pub fn start() {
     thread::spawn(|| loop {
-        if let Err(e) = run_once() {
-            eprintln!("[supabase] sync: {}", e);
+        let now = Local::now().to_rfc3339();
+        match run_once() {
+            Ok(()) => set_status(true, None),
+            Err(e) => {
+                eprintln!("[supabase] sync ({}): {}", now, e);
+                set_status(false, Some(e));
+            }
         }
         thread::sleep(Duration::from_secs(SYNC_SECONDS));
     });
@@ -122,7 +156,7 @@ fn run_once() -> Result<(), String> {
         .collect();
     upsert(&client, &cfg, "kafe_drinks", &drinks)?;
 
-    let hist_val = queries::history(&conn, HISTORY_LIMIT);
+    let hist_val = queries::history_since_days(&conn, HISTORY_SYNC_DAYS);
     let hist: Vec<Value> = hist_val
         .as_array()
         .cloned()

@@ -93,6 +93,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
         }) {
             for r in rows.flatten() {
                 let (id, name, stype, group, status, customer, start, paused_at, total_paused) = r;
+                let eff_status: String = if status == "active" && paused_at.is_some() { "paused".into() } else { status.clone() };
                 let elapsed_min = if status == "active" {
                     let (m, _s, _f, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused);
                     m
@@ -101,7 +102,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 };
                 stations.push(json!({
                     "id": id, "name": name, "type": stype, "group": group,
-                    "status": status, "customer": customer, "start_time": start,
+                    "status": eff_status, "customer": customer, "start_time": start,
                     "elapsed_min": elapsed_min,
                 }));
             }
@@ -245,6 +246,40 @@ pub fn history(conn: &Connection, limit: i64) -> serde_json::Value {
     json!(items)
 }
 
+pub fn history_since_days(conn: &Connection, days: i64) -> serde_json::Value {
+    let cutoff = (Local::now() - chrono::Duration::days(days)).to_rfc3339();
+    let mut items: Vec<serde_json::Value> = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0) FROM session_history WHERE end_time >= ?1 ORDER BY end_time DESC",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![cutoff], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, f64>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, f64>(8)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, drink_total) = r;
+                items.push(json!({
+                    "id": id,
+                    "station_name": station_name, "customer": customer,
+                    "start_time": start_time, "end_time": end_time,
+                    "duration_minutes": duration_minutes, "total": total,
+                    "payment_method": payment_method, "drink_total": drink_total,
+                }));
+            }
+        }
+    }
+    json!(items)
+}
+
 pub fn day_end(conn: &Connection, date: &str) -> serde_json::Value {
     let (sessions, total_revenue, total_discount, drink_revenue): (i64, f64, f64, f64) = conn
         .query_row(
@@ -328,4 +363,55 @@ pub fn day_end(conn: &Connection, date: &str) -> serde_json::Value {
         "top_drinks": top_drinks,
         "top_stations": top_stations,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrate_db;
+
+    fn test_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate_db(&conn);
+        conn.execute_batch(
+            "INSERT INTO stations (id, name, station_type, status, group_name) VALUES ('pc-test', 'Test', 'standard', 'active', '')",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn paused_session_freezes_minutes() {
+        let conn = test_conn();
+        let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
+        let paused = (Local::now() - chrono::Duration::minutes(20)).to_rfc3339();
+        let (mins, _s, _f, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, Some(&paused), 0);
+        assert!(is_paused);
+        assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
+    }
+
+    #[test]
+    fn resumed_session_subtracts_total_paused() {
+        let conn = test_conn();
+        let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
+        let (mins, _s, _f, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, None, 1200);
+        assert!(!is_paused);
+        assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
+    }
+
+    #[test]
+    fn paused_station_is_reported_paused_in_overview() {
+        let conn = test_conn();
+        conn.execute(
+            "INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type) VALUES ('pc-test', 'Test', 'Musteri', ?1, 'nakit')",
+            params![(Local::now() - chrono::Duration::minutes(50)).to_rfc3339()],
+        )
+        .unwrap();
+        conn.execute("UPDATE active_sessions SET paused_at = ?1 WHERE station_id = 'pc-test'", params![(Local::now() - chrono::Duration::minutes(20)).to_rfc3339()])
+            .unwrap();
+        let ov = overview(&conn);
+        let stations = ov["stations"].as_array().unwrap();
+        let s = stations.iter().find(|x| x["id"] == "pc-test").unwrap();
+        assert_eq!(s["status"], "paused");
+    }
 }

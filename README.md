@@ -121,6 +121,24 @@ Veriler `%LOCALAPPDATA%/oyun-kafe-yonetim/` dizininde saklanir:
 2. CSV veya JSON butonuna tikla
 3. Dosya `%LOCALAPPDATA%/oyun-kafe-yonetim/exports/` icine kaydedilir
 
+## Supabase Esitleme ve Anahtar Yonetimi
+
+Masaustu uygulama SQLite verilerini periyodik olarak Supabase'e eşitler; mobil panel bu
+verileri okur. Baglanti bilgileri `%LOCALAPPDATA%/oyun-kafe-yonetim/supabase.json`
+dosyasinda saklanir (git'e commit edilmez):
+
+| Alan | Kullanimi | Gizlilik |
+|------|-----------|----------|
+| `url` | REST endpoint | Public |
+| `anon_key` | Mobil panel okuma | Public (panele gomulur) |
+| `service_key` | Desktop -> Supabase yazma | **SIZDIRILMAMALI** |
+| `panel_url` | Desktop web kartinda gosterilen panel adresi | Public |
+
+- **Mobil panel deploy:** `scripts/deploy-vercel.ps1` — anon_key'i supabase.json'dan alir
+- **Anahtar rotasyonu:** `scripts/rotate-supabase-keys.ps1` — yeni JWT secret sonrasi
+  supabase.json'u gunceller (eskiyi `.bak-*` olarak yedekler)
+- Rotasyondan sonra desktop uygulamayi yeniden baslatmak ve paneli yeniden deploy etmek gerekir
+
 ## Proje Yapisi
 
 ```

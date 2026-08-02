@@ -40,7 +40,7 @@ fn main() {
             auth::list_users, auth::add_user, auth::update_user, auth::remove_user,
             auth::change_password, auth::reset_user_password, auth::clock_in, auth::clock_out,
             auth::get_active_shift, auth::get_shift_history, auth::get_audit_log,
-            web::get_web_info,
+            web::get_web_info, web::get_sync_status,
             toggle_fullscreen,
         ])
         .setup(|_app| {

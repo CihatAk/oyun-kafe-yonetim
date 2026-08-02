@@ -3,18 +3,63 @@ use tauri::State;
 use uuid::Uuid;
 use chrono::Local;
 
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::Argon2;
+
 use crate::db::{AppState, CurrentUser};
 use crate::models::*;
 
-const SALT: &str = "oyun-kafe-2026";
+const LEGACY_SALT: &str = "oyun-kafe-2026";
 
-pub fn hash_password(password: &str, salt: &str) -> String {
+pub fn make_hash(password: &str) -> String {
+    let salt = SaltString::generate(&mut OsRng);
+    match Argon2::default().hash_password(password.as_bytes(), &salt) {
+        Ok(h) => h.to_string(),
+        Err(_) => legacy_hash(password),
+    }
+}
+
+pub fn verify_password(password: &str, stored: &str) -> bool {
+    if stored.starts_with("$argon2") {
+        if let Ok(parsed) = PasswordHash::new(stored) {
+            return Argon2::default()
+                .verify_password(password.as_bytes(), &parsed)
+                .is_ok();
+        }
+        return false;
+    }
+    legacy_hash(password) == stored
+}
+
+fn legacy_hash(password: &str) -> String {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
-    hasher.update(salt.as_bytes());
+    hasher.update(LEGACY_SALT.as_bytes());
     hasher.update(password.as_bytes());
     let result = hasher.finalize();
     result.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn make_and_verify_roundtrip() {
+        let h = make_hash("sifre123");
+        assert!(h.starts_with("$argon2"), "argon2 format olmali");
+        assert!(verify_password("sifre123", &h));
+        assert!(!verify_password("yanlis", &h));
+    }
+
+    #[test]
+    fn legacy_hash_compat() {
+        let old = legacy_hash("admin123");
+        assert_eq!(old.len(), 64);
+        assert!(verify_password("admin123", &old));
+        assert!(!verify_password("yanlis", &old));
+    }
 }
 
 fn now() -> String {
@@ -57,7 +102,7 @@ pub fn login(username: String, password: String, state: State<AppState>) -> Resu
         .map_err(|_| "Kullanıcı bulunamadı!")?;
     let (id, uname, hash, full_name, role, active) = user;
     if active != 1 { return Err("Kullanıcı pasif!".into()); }
-    if hash != hash_password(&password, SALT) { return Err("Yanlış şifre!".into()); }
+    if !verify_password(&password, &hash) { return Err("Yanlış şifre!".into()); }
     let cu = CurrentUser { id, username: uname, full_name, role };
     *state.current_user.lock().map_err(|e| e.to_string())? = Some(cu.clone());
     Ok(cu)
@@ -95,7 +140,7 @@ pub fn add_user(username: String, password: String, full_name: String, role: Str
     if exists { return Err("Bu kullanıcı adı zaten var!".into()); }
     let id = Uuid::new_v4().to_string();
     conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
-        params![id, username.trim(), hash_password(&password, SALT), full_name, role, now()]).map_err(|e| e.to_string())?;
+        params![id, username.trim(), make_hash(&password), full_name, role, now()]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "add_user", "users", format!("{} eklendi ({})", full_name, role).as_str());
     Ok(())
 }
@@ -127,8 +172,8 @@ pub fn change_password(old_password: String, new_password: String, state: State<
     if new_password.len() < 4 { return Err("Yeni şifre en az 4 karakter olmalı!".into()); }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let current_hash: String = conn.query_row("SELECT password_hash FROM users WHERE id = ?1", params![user.id], |r| r.get(0)).map_err(|_| "Kullanıcı bulunamadı!")?;
-    if current_hash != hash_password(&old_password, SALT) { return Err("Mevcut şifre yanlış!".into()); }
-    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![hash_password(&new_password, SALT), user.id]).map_err(|e| e.to_string())?;
+    if !verify_password(&old_password, &current_hash) { return Err("Mevcut şifre yanlış!".into()); }
+    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![make_hash(&new_password), user.id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "change_password", "auth", "Şifre değiştirildi");
     Ok(())
 }
@@ -192,7 +237,7 @@ pub fn reset_user_password(user_id: String, new_password: String, state: State<A
     require_admin(&state)?;
     if new_password.len() < 4 { return Err("Yeni şifre en az 4 karakter olmalı!".into()); }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![hash_password(&new_password, SALT), user_id]).map_err(|e| e.to_string())?;
+    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![make_hash(&new_password), user_id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "reset_password", "users", "Şifre sıfırlandı");
     Ok(())
 }

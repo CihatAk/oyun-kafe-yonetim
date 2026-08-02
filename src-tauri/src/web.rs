@@ -11,11 +11,11 @@ use serde_json::json;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 use uuid::Uuid;
 
-use crate::commands::auth::hash_password;
+use crate::commands::auth::verify_password;
+use crate::sync;
 
 pub const WEB_PORT: u16 = 8747;
-const SALT: &str = "oyun-kafe-2026";
-const TOKEN_TTL: Duration = Duration::from_secs(12 * 3600);
+const TOKEN_TTL: Duration = Duration::from_secs(4 * 3600);
 const INDEX: &str = include_str!("../web/index.html");
 
 struct TokenInfo {
@@ -32,8 +32,17 @@ fn port_from_env() -> u16 {
         .unwrap_or(WEB_PORT)
 }
 
+fn web_host() -> String {
+    std::env::var("OYUNKAFE_WEB_HOST").unwrap_or_else(|_| "127.0.0.1".into())
+}
+
+fn lan_enabled() -> bool {
+    web_host() == "0.0.0.0"
+}
+
 pub fn run(db_path: PathBuf, port: u16) {
-    let addr = format!("0.0.0.0:{}", port);
+    let host = web_host();
+    let addr = format!("{}:{}", host, port);
     let server = match Server::http(&addr) {
         Ok(s) => s,
         Err(e) => {
@@ -230,7 +239,7 @@ fn login_handler(db_path: &Path, body: &str) -> HttpResp {
     if active != 1 {
         return json_resp(403, json!({ "error": "Kullanıcı pasif" }));
     }
-    if hash != hash_password(&password, SALT) {
+    if !verify_password(&password, &hash) {
         return json_resp(401, json!({ "error": "Yanlış şifre" }));
     }
     let token = issue_token(&uname);
@@ -257,26 +266,41 @@ fn history_handler(conn: &Connection, _user: &str, limit: i64) -> HttpResp {
 
 
 #[tauri::command]
+pub fn get_sync_status() -> Result<serde_json::Value, String> {
+    Ok(serde_json::to_value(sync::current_status()).unwrap_or_else(|_| json!({ "ok": false })))
+}
+
+#[tauri::command]
 pub fn get_web_info() -> Result<serde_json::Value, String> {
     let port = port_from_env();
     let ip = local_ip_address::local_ip().ok();
     let ip_str = ip.map(|i| i.to_string()).unwrap_or_default();
-    let lan_url = if ip_str.is_empty() {
+    let lan_url = if lan_enabled() && !ip_str.is_empty() {
+        format!("http://{}:{}", ip_str, port)
+    } else {
+        String::new()
+    };
+    let sb = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+    let has_sb = sb.as_ref().and_then(|v| v["url"].as_str().map(String::from)).is_some();
+    let panel_url = sb
+        .as_ref()
+        .and_then(|v| v["panel_url"].as_str().map(String::from))
+        .filter(|u| !u.is_empty())
+        .or_else(|| if has_sb { Some("https://panel-deploy-six.vercel.app".to_string()) } else { None })
+        .unwrap_or_default();
+    let lan_note = if lan_enabled() {
         String::new()
     } else {
-        format!("http://{}:{}", ip_str, port)
+        "LAN erişimi kapalı. Açmak için OYUNKAFE_WEB_HOST=0.0.0.0 ortam değişkeni ile başlatın.".to_string()
     };
-    let panel_url = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json"))
-        .ok()
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .and_then(|v| v["url"].as_str().map(String::from))
-        .map(|_u| "https://panel-deploy-six.vercel.app".to_string())
-        .unwrap_or_default();
     Ok(json!({
         "port": port,
         "ip": ip_str,
         "localUrl": format!("http://127.0.0.1:{}", port),
         "lanUrl": lan_url,
+        "lanNote": lan_note,
         "panelUrl": panel_url,
         "externalNote": "İnternet paneli: tarayıcıda 'Panel adresi'ni açın (Supabase üzerinden, giriş gerektirmez)."
     }))
