@@ -149,6 +149,9 @@
                     <button onclick="toggleFullscreen()" class="px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm font-medium transition" title="Tam Ekran (F11)">
                         <span id="fullscreen-icon">⛶</span>
                     </button>
+                    <button onclick="checkUpdate()" class="px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm font-medium transition" title="Güncelleme Kontrolü">
+                        🔄
+                    </button>
                     <button onclick="backupDatabase()" class="px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm font-medium transition" title="Yedekle">
                         💾
                     </button>
@@ -1188,6 +1191,28 @@
         }
         function toggleFullscreen() {
             try { invoke('toggle_fullscreen'); } catch (e) { console.error(e); }
+        }
+        function checkUpdate() {
+            try {
+                if (window.__TAURI__) {
+                    window.__TAURI__.updater.checkUpdate().then(function(result) {
+                        if (result.shouldUpdate) {
+                            showToast('Güncelleme mevcut: ' + result.latestVersion);
+                            window.__TAURI__.updater.installUpdate().then(function() {
+                                showToast('Güncelleme yükleniyor...');
+                            }).catch(function(e) {
+                                showToast('Güncelleme hatası: ' + e, 'error');
+                            });
+                        } else {
+                            showToast('Güncel versiyon kullanıyorsunuz');
+                        }
+                    }).catch(function(e) {
+                        showToast('Güncelleme kontrol hatası: ' + e, 'error');
+                    });
+                } else {
+                    showToast('Güncelleme kontrolü sadece masaüstü uygulamasında çalışır', 'warning');
+                }
+            } catch (e) { console.error(e); }
         }
         window.onerror = function(msg, url, line, col, err) {
             console.error('JS HATASI:', msg, 'Satır:', line, 'Kolon:', col, 'Hata:', err);

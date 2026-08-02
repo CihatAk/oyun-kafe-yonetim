@@ -65,6 +65,18 @@ fn main() {
                     let _ = w.show();
                 }
             });
+            // Otomatik güncelleme kontrolü
+            let app_handle = app.handle().clone();
+            app.listen("tauri://update-available", |event| {
+                println!("Güncelleme mevcut: {:?}", event.payload());
+            });
+            app.listen("tauri://update-install", |event| {
+                println!("Güncelleme yüklendi: {:?}", event.payload());
+            });
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(10));
+                let _ = app_handle.emit_all("check-update", ());
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

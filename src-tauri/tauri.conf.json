@@ -54,6 +54,14 @@
         "timestampUrl": ""
       }
     },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/CihatAk/oyun-kafe-yonetim/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4NUVBRTQyMjY3QTQ4QTAKUldRRk1HRzhnYnBWS1ZjQUxTVWVIMzNmd3B2Q2lMbjhScldpSjBvM3F6UFBmMm5YVkZ6MjU5QzVWClMxQU5ZVmpsQ3Nrc0tRdnI2bS9lVklJQ05jU0QxcG9RdlNtN2VJQzI="
+    },
     "windows": [
       {
         "fullscreen": false,
