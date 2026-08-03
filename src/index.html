@@ -22,7 +22,8 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .slide-in { animation: slideIn 0.25s ease-out; box-shadow: 0 8px 24px rgba(1, 4, 9, 0.6); }
         @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .modal-overlay { animation: fadeIn 0.15s ease-out; background: rgba(1, 4, 9, 0.8) !important; }
+        .modal-overlay { animation: fadeIn 0.15s ease-out; background: rgba(1, 4, 9, 0.8) !important; align-items: flex-start !important; justify-content: center !important; overflow-y: auto; padding: 24px 0; }
+        .modal-overlay > .slide-in { margin: auto; max-height: calc(100vh - 48px); }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .toast { animation: toastSlide 0.3s ease-out; }
         @keyframes toastSlide { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -170,7 +171,7 @@
 
         <!-- ═══ Dashboard ═══ -->
         <div id="tab-dashboard" class="tab-content space-y-6">
-            <div class="grid grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass rounded-xl p-4 border-l-2 border-l-emerald-400">
                     <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Aktif İstasyon</span><span class="text-xl">🟢</span></div>
                     <div class="text-3xl font-semibold text-emerald-300" id="dash-active">0</div>
@@ -193,40 +194,19 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">🖥️ İstasyonlar</h2>
-                <button onclick="openAddStationModal()" id="add-station-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition flex items-center gap-2">+ Yeni İstasyon Ekle</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="stations-grid"></div>
             <div class="glass rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold flex items-center gap-2">
-                        <span class="w-2 h-2 bg-emerald-400 rounded-full pulse-dot"></span> Aktif Oturumlar
-                    </h2>
-                    <div class="flex items-center gap-3">
-                        <span class="text-slate-500 text-sm font-mono" id="live-clock">--:--:--</span>
-                        <button onclick="refreshActiveSessions()" class="px-2.5 py-1.5 bg-slate-700/70 hover:bg-slate-600/70 rounded-lg text-xs font-medium transition" title="Yenile">🔄 Yenile</button>
+                <div class="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <h2 class="text-lg font-semibold flex items-center gap-2">🖥️ İstasyonlar</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Oturum başlatmak veya yönetmek için istasyona dokunun</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadStations()" class="px-3 py-2 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-sm font-medium transition" title="Yenile">🔄</button>
+                        <button onclick="openAddStationModal()" id="add-station-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition flex items-center gap-1.5">+ İstasyon Ekle</button>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="bg-slate-900 text-slate-400 text-xs uppercase tracking-wider">
-                                <th class="p-3 font-medium">Masa</th>
-                                <th class="p-3 font-medium">Müşteri</th>
-                                <th class="p-3 font-medium">Durum</th>
-                                <th class="p-3 font-medium">Başlangıç</th>
-                                <th class="p-3 font-medium">Geçen Süre</th>
-                                <th class="p-3 font-medium">Oturum Ücreti</th>
-                                <th class="p-3 font-medium">Masa İçeriği</th>
-                                <th class="p-3 font-medium">Toplam</th>
-                                <th class="p-3 font-medium">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody id="active-sessions-body">
-                            <tr><td colspan="10" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>
-                        </tbody>
-                    </table>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="stations-grid"></div>
                 </div>
             </div>
             <div id="web-card" class="glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
@@ -635,9 +615,12 @@
 
     <!-- Oturum Sonlandır -->
     <div id="modal-end" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay">
-        <div class="glass rounded-2xl p-8 w-[520px] slide-in">
-            <h3 class="text-xl font-bold mb-6 text-red-400">⏹️ Oturum Sonlandır</h3>
-            <div class="space-y-4">
+        <div class="glass rounded-2xl w-[520px] max-w-[calc(100vw-2rem)] max-h-full flex flex-col overflow-hidden slide-in">
+            <div class="px-6 pt-6 pb-4 border-b border-slate-700/50 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-red-400">⏹️ Oturum Sonlandır</h3>
+                <button onclick="closeModal('modal-end')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
+            </div>
+            <div class="px-6 py-4 space-y-4 overflow-y-auto flex-1">
                 <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
                     <div class="flex justify-between text-sm"><span class="text-slate-400">İstasyon:</span><span id="end-station-name" class="font-semibold text-white"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Müşteri:</span><span id="end-customer-name" class="font-semibold text-white"></span></div>
@@ -691,10 +674,10 @@
                 </div>
                 <input type="hidden" id="end-station-id">
                 <input type="hidden" id="end-duration-mins">
-                <div class="flex gap-3 mt-4">
-                    <button onclick="closeModal('modal-end')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
-                    <button onclick="confirmEndSession()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-medium transition">Sonlandır & Öde</button>
-                </div>
+            </div>
+            <div class="px-6 pt-4 pb-6 border-t border-slate-700/50 flex gap-3">
+                <button onclick="closeModal('modal-end')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
+                <button onclick="confirmEndSession()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-medium transition">Sonlandır & Öde</button>
             </div>
         </div>
     </div>
@@ -1097,7 +1080,6 @@
                 document.getElementById('dash-revenue').textContent = '₺' + stats.today_revenue.toFixed(2);
                 document.getElementById('dash-sessions').textContent = stats.total_sessions;
                 document.getElementById('dash-avg').textContent = stats.avg_duration + ' dk';
-                await renderActiveSessions();
             } catch (e) { showToast('Hata: ' + e, 'error'); }
             try {
                 const info = await invoke('get_web_info');
@@ -1186,110 +1168,24 @@
         }
         setInterval(refreshSyncStatus, 10000);
 
-        var renderActiveSessionsBusy = false;
-        function refreshActiveSessions() { renderActiveSessionsBusy = false; renderActiveSessions(); }
-        async function renderActiveSessions() {
-            if (renderActiveSessionsBusy) return;
-            renderActiveSessionsBusy = true;
-            try {
-                const sessions = await invoke('get_active_sessions');
-                const tbody = document.getElementById('active-sessions-body');
-                const isAdmin = currentUser && currentUser.role === 'admin';
-                if (sessions.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>';
-                    renderActiveSessionsBusy = false;
-                    return;
-                }
-                tbody.innerHTML = '';
-                for (const s of sessions) {
-                    let fee = null, sessionDrinks = [];
-                    try {
-                        [fee, sessionDrinks] = await Promise.all([
-                            invoke('calculate_live_fee', { stationId: s.station_id, paymentMethod: s.rate_type }),
-                            invoke('get_session_drink_items', { sessionId: s.station_id })
-                        ]);
-                    } catch (pe) {
-                        console.error('Oturum verisi alınamadı:', s.station_id, pe);
-                        const errRow = document.createElement('tr');
-                        errRow.className = 'border-b border-red-700/30 bg-red-600/10';
-                        errRow.innerHTML = `<td colspan="10" class="p-3 text-red-300 text-sm">${escHtml(s.station_name)} — ${escHtml(s.customer)} oturumu için veri alınamadı: ${escHtml(String(pe))}</td>`;
-                        tbody.appendChild(errRow);
-                        continue;
-                    }
-                    const start = new Date(s.start_time);
-                    const isPaused = fee.is_paused;
-                    const tr = document.createElement('tr');
-                    const rowClass = fee.show_warning ? 'warning-flash border-amber-500/30' : isPaused ? 'bg-amber-500/5 border-amber-500/20' : 'border-slate-700/30 hover:bg-slate-800/30';
-                    tr.className = `border-b ${rowClass} transition`;
-                    const statusBadge = isPaused
-                        ? '<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-xs font-medium paused-badge">Duraklatıldı</span>'
-                        : '<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs font-medium">Aktif</span>';
-                    const warnBadge = fee.show_warning ? `<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-xs font-medium">⚠️ ${fee.remaining_seconds > 0 ? Math.ceil(fee.remaining_seconds/60) + ' dk kaldı' : ''}</span>` : '';
-                    const autoBadge = fee.auto_end ? '<span class="px-2 py-0.5 bg-red-500/20 text-red-300 rounded text-xs font-medium">Süre doldu</span>' : '';
-                    const pauseBtn = isPaused
-                        ? `<button onclick="resumeSession('${s.station_id}')" class="px-2 py-1.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg text-xs font-medium transition" title="Sürdür">▶️</button>`
-                        : `<button onclick="pauseSession('${s.station_id}')" class="px-2 py-1.5 bg-amber-600/80 hover:bg-amber-500 rounded-lg text-xs font-medium transition" title="Duraklat">⏸️</button>`;
-
-                    let drinkChips = '';
-                    if (sessionDrinks.length > 0) {
-                        drinkChips = sessionDrinks.map(d => `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-700/60 rounded text-xs">${escHtml(d.drink_name)} x${d.quantity} <button onclick="removeSessionDrink('${d.id}','${s.station_id}')" class="text-red-400 hover:text-red-300 ml-0.5" title="Kaldır">✕</button></span>`).join(' ');
-                    }
-                    drinkChips += ` <button onclick="openQuickAddDrink('${s.station_id}')" class="inline-flex items-center px-1.5 py-0.5 bg-cyan-600/60 hover:bg-cyan-500 rounded text-xs font-medium transition" title="İçecek Ekle">+</button>`;
-
-                    tr.innerHTML = `
-                        <td class="p-3 font-semibold text-cyan-400">${escHtml(s.station_name)}</td>
-                        <td class="p-3">${escHtml(s.customer)}</td>
-                        <td class="p-3">${statusBadge} ${warnBadge} ${autoBadge}</td>
-                        <td class="p-3 text-slate-400 font-mono text-xs">${start.toLocaleTimeString('tr-TR')}</td>
-                        <td class="p-3 font-mono text-sm" data-live="${s.station_id}">${fee.minutes}dk ${fee.seconds}s</td>
-                        <td class="p-3 font-bold text-emerald-400" data-session-fee="${s.station_id}">₺${fee.current_fee.toFixed(2)}</td>
-                        <td class="p-3">
-                            <div class="flex items-center gap-1">
-                                <button onclick="changeExtraControllers('${s.station_id}', ${fee.extra_controllers} - 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Eksilt">−</button>
-                                <span class="px-1 text-orange-300 text-xs font-semibold whitespace-nowrap" data-extra="${s.station_id}">🎮 ${fee.extra_controllers}${fee.extra_fee > 0 ? ` <span class="text-slate-400">(+₺${fee.extra_fee.toFixed(2)})</span>` : ''}</span>
-                                <button onclick="changeExtraControllers('${s.station_id}', ${fee.extra_controllers} + 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Arttır">+</button>
-                            </div>
-                        </td>
-                        <td class="p-3 max-w-[280px]"><div class="flex flex-wrap gap-1 items-center">${drinkChips}</div></td>
-                        <td class="p-3 font-bold text-white" data-total="${s.station_id}">₺${fee.total_with_drinks.toFixed(2)}</td>
-                        <td class="p-2 flex gap-1 flex-wrap">
-                            ${pauseBtn}
-                            ${isAdmin ? `<button onclick="openEditStartTimeModal('${s.station_id}', '${esc(s.station_name)}', '${esc(s.customer)}', '${s.start_time}')" class="px-2 py-1.5 bg-slate-600/80 hover:bg-slate-500 rounded-lg text-xs transition" title="Saat Düzenle">🕐</button>` : ''}
-                            <button onclick="openNotesModal('${s.station_id}', '${esc(s.notes || '')}', '${esc(s.tags || '')}')" class="px-2 py-1.5 bg-slate-600/80 hover:bg-slate-500 rounded-lg text-xs transition" title="Notlar">📝</button>
-                            <button onclick="openEndModal('${s.station_id}', '${esc(s.station_name)}', '${esc(s.customer)}', ${fee.minutes || 0})" class="px-3 py-1.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-xs font-medium transition">Sonlandır</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } catch (e) {
-                console.error(e);
-                const tbody = document.getElementById('active-sessions-body');
-                if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-400 text-sm">Aktif oturum listesi yüklenemedi: ${escHtml(String(e))}</td></tr>`;
-            }
-            renderActiveSessionsBusy = false;
-        }
-
         function esc(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
         function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
         function startLiveUpdates() {
             stopLiveUpdates();
             liveUpdateInterval = setInterval(async () => {
-                document.getElementById('live-clock').textContent = new Date().toLocaleTimeString('tr-TR');
                 try {
                     const sessions = await invoke('get_active_sessions');
                     document.getElementById('dash-active').textContent = sessions.length;
                     for (const s of sessions) {
                         try {
                             const fee = await invoke('calculate_live_fee', { stationId: s.station_id, paymentMethod: s.rate_type });
-                            const sf = document.querySelector(`[data-session-fee="${s.station_id}"]`);
                             const tt = document.querySelector(`[data-total="${s.station_id}"]`);
                             const tl = document.querySelector(`[data-live="${s.station_id}"]`);
                             const ex = document.querySelector(`[data-extra="${s.station_id}"]`);
-                            if (sf) sf.textContent = '₺' + fee.current_fee.toFixed(2);
                             if (tt) tt.textContent = '₺' + fee.total_with_drinks.toFixed(2);
                             if (tl) tl.textContent = `${fee.minutes}dk ${fee.seconds}s`;
-                            if (ex) ex.innerHTML = '🎮 ' + fee.extra_controllers + (fee.extra_fee > 0 ? ` <span class="text-slate-400">(+₺${fee.extra_fee.toFixed(2)})</span>` : '');
+                            if (ex) ex.textContent = fee.extra_controllers;
                         } catch (e) { console.error('Canlı güncelleme hatası:', e); }
                     }
                 } catch (e) { console.error('Oturum listesi hatası:', e); }
@@ -1315,49 +1211,97 @@
                     const sess = sessByStation[st.id];
                     const isActive = !!sess;
                     let live = null;
+                    let sessionDrinks = [];
                     if (sess) {
                         try {
-                            live = await invoke('calculate_live_fee', { stationId: st.id, paymentMethod: sess.rate_type });
-                        } catch (le) { console.error('Canlı ücret alınamadı:', st.id, le); }
+                            [live, sessionDrinks] = await Promise.all([
+                                invoke('calculate_live_fee', { stationId: st.id, paymentMethod: sess.rate_type }),
+                                invoke('get_session_drink_items', { sessionId: st.id })
+                            ]);
+                        } catch (le) { console.error('Oturum verisi alınamadı:', st.id, le); }
                     }
                     const card = document.createElement('div');
-                    card.className = `station-card glass rounded-2xl p-5 border ${isActive ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-600/30'}`;
-                    const liveBlock = isActive && live ? `
-                        <div class="rounded-xl bg-slate-800/50 border border-emerald-500/20 p-3 mb-3 text-xs space-y-1.5">
-                            <div class="flex items-center justify-between"><span class="text-slate-400">Müşteri</span><span class="text-white font-medium">${escHtml(sess.customer)}</span></div>
-                            <div class="flex items-center justify-between"><span class="text-slate-400">Başlangıç</span><span class="text-slate-300 font-mono">${new Date(sess.start_time).toLocaleTimeString('tr-TR')}</span></div>
-                            <div class="flex items-center justify-between"><span class="text-slate-400">Geçen Süre</span><span class="text-emerald-300 font-mono">${live.minutes}dk ${live.seconds}s</span></div>
-                            <div class="flex items-center justify-between"><span class="text-slate-400">Ücret</span><span class="text-amber-300 font-bold">₺${live.total_with_drinks.toFixed(2)}</span></div>
-                            <div class="flex items-center justify-between"><span class="text-slate-400">Ekstra Kumanda</span>
+                    card.className = `station-card glass rounded-2xl p-5 border flex flex-col ${isActive ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-600/30'}`;
+
+                    const statusPill = isActive
+                        ? `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 flex items-center gap-1.5 whitespace-nowrap"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full pulse-dot"></span>Aktif</span>`
+                        : `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-600/30 text-slate-400 flex items-center gap-1.5 whitespace-nowrap"><span class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>Boşta</span>`;
+
+                    const isPaused = !!(sess && sess.paused_at);
+
+                    let liveBlock = '';
+                    if (isActive && live) {
+                        let drinkChips = '';
+                        if (sessionDrinks.length > 0) {
+                            drinkChips = sessionDrinks.map(d => `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-700/60 rounded text-xs">${escHtml(d.emoji || '🥤')}${escHtml(d.drink_name)}×${d.quantity} <button onclick="removeSessionDrink('${d.id}','${st.id}')" class="text-red-400 hover:text-red-300" title="Kaldır">✕</button></span>`).join('');
+                        }
+                        drinkChips += ` <button onclick="openQuickAddDrink('${st.id}')" class="inline-flex items-center px-1.5 py-0.5 bg-cyan-600/60 hover:bg-cyan-500 rounded text-xs font-medium transition" title="İçecek Ekle">+</button>`;
+                        liveBlock = `
+                            <div class="flex items-center justify-between gap-2 mt-3 text-sm">
+                                <span class="text-slate-300 flex items-center gap-1.5 min-w-0"><span>👤</span><span class="truncate font-medium">${escHtml(sess.customer)}</span></span>
+                                <span class="text-slate-500 font-mono text-xs whitespace-nowrap">${new Date(sess.start_time).toLocaleTimeString('tr-TR')}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div class="rounded-lg bg-slate-800/50 px-3 py-2 ${isPaused ? 'opacity-60' : ''}">
+                                    <div class="text-[11px] text-slate-400">Geçen Süre</div>
+                                    <div class="text-sm font-semibold font-mono ${isPaused ? 'text-amber-300' : 'text-emerald-300'}" data-live="${st.id}">${live.minutes}dk ${live.seconds}s</div>
+                                </div>
+                                <div class="rounded-lg bg-slate-800/50 px-3 py-2">
+                                    <div class="text-[11px] text-slate-400">Toplam</div>
+                                    <div class="text-sm font-bold text-white" data-total="${st.id}">₺${live.total_with_drinks.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2 mt-2">
+                                <span class="text-[11px] text-slate-400">🎮 Ekstra Kumanda</span>
                                 <span class="flex items-center gap-1">
-                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} - 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Eksilt">−</button>
-                                    <span class="text-orange-300 font-semibold whitespace-nowrap">🎮 ${live.extra_controllers}${live.extra_fee > 0 ? ` <span class="text-slate-500">(+₺${live.extra_fee.toFixed(2)})</span>` : ''}</span>
-                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} + 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Arttır">+</button>
+                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} - 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold leading-none transition" title="Eksilt">−</button>
+                                    <span class="text-orange-300 font-semibold text-sm whitespace-nowrap" data-extra="${st.id}">${live.extra_controllers}</span>
+                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} + 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold leading-none transition" title="Arttır">+</button>
                                 </span>
                             </div>
-                        </div>` : '';
-                    const actionBtns = isActive ? `
-                        <button onclick="openEndModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-medium transition">Sonlandır</button>
-                         ${sess.paused_at ? `<button onclick="resumeSession('${st.id}')" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm transition" title="Sürdür">▶️</button>` : `<button onclick="pauseSession('${st.id}')" class="px-3 py-2 bg-amber-600/80 hover:bg-amber-500 rounded-xl text-sm transition" title="Duraklat">⏸️</button>`}
-                    ` : `<button onclick="openStartModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm font-medium transition">Başlat</button>`;
+                            <div class="flex flex-wrap gap-1 items-center mt-2">${drinkChips}</div>`;
+                    }
+
+                    const primaryBtn = isActive
+                        ? `<button onclick="openEndModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2.5 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-semibold transition">Sonlandır</button>`
+                        : `<button onclick="openStartModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold transition">Oturum Başlat</button>`;
+
+                    let iconBtns = '';
+                    if (isActive) {
+                        iconBtns += isPaused
+                            ? `<button onclick="resumeSession('${st.id}')" class="w-10 py-2.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm transition" title="Sürdür">▶️</button>`
+                            : `<button onclick="pauseSession('${st.id}')" class="w-10 py-2.5 bg-amber-600/80 hover:bg-amber-500 rounded-xl text-sm transition" title="Duraklat">⏸️</button>`;
+                        iconBtns += `<button onclick="openNotesModal('${st.id}', '${esc(sess.notes || '')}', '${esc(sess.tags || '')}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Notlar">📝</button>`;
+                        if (isAdmin) iconBtns += `<button onclick="openEditStartTimeModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', '${sess.start_time}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Saat Düzenle">🕐</button>`;
+                    } else if (isAdmin) {
+                        iconBtns += `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${st.station_type}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="İstasyon Düzenle">✏️</button>`;
+                    }
+
+                    const idleHint = isActive ? '' : '<div class="text-xs text-slate-500 mt-3">Boş istasyon — oturum başlatabilirsiniz</div>';
+
                     card.innerHTML = `
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-lg font-bold text-white">${escHtml(st.name)}</h3>
-                            <span class="text-xs px-2 py-1 rounded-lg font-medium ${st.station_type === 'vip' ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-600/30 text-slate-300'}">${st.station_type.toUpperCase()}</span>
-                        </div>
-                        ${st.group_name ? `<div class="text-xs text-slate-500 mb-2">📁 ${escHtml(st.group_name)}</div>` : ''}
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 pulse-dot' : 'bg-slate-500'}"></span>
-                            <span class="text-sm ${isActive ? 'text-emerald-400' : 'text-slate-400'}">${isActive ? 'Aktif' : 'Boşta'}</span>
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <h3 class="text-base font-bold text-white truncate">${escHtml(st.name)}</h3>
+                                <p class="text-[11px] text-slate-500 mt-0.5">${st.station_type === 'vip' ? '⭐ VIP' : '🖥️ Standart'}${st.group_name ? ' · 📁 ' + escHtml(st.group_name) : ''}</p>
+                            </div>
+                            ${statusPill}
                         </div>
                         ${liveBlock}
-                        <div class="text-xs text-slate-500 mb-3">📊 ${st.total_sessions} oturum · ₺${st.total_revenue.toFixed(0)}</div>
-                        <div class="flex gap-2">
-                            ${actionBtns}
-                            ${isAdmin ? `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${st.station_type}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="px-3 py-2 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition">✏️</button>` : ''}
+                        ${idleHint}
+                        <div class="flex gap-2 mt-auto pt-4">
+                            ${primaryBtn}
+                            ${iconBtns}
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>📊 ${st.total_sessions} oturum</span>
+                            <span>₺${st.total_revenue.toFixed(0)}</span>
                         </div>
                     `;
                     grid.appendChild(card);
+                }
+                if (stations.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-sm">Henüz istasyon yok. "İstasyon Ekle" ile başlayın.</div>`;
                 }
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -1588,13 +1532,13 @@
         }
 
         async function removeDrink(id) { if (!confirm('Bu içeceği silmek istediğinize emin misiniz?')) return; try { await invoke('remove_drink', { drinkId: id }); showToast('İçecek silindi'); loadDrinks(); } catch (e) { showToast('Hata: ' + e, 'error'); } }
-        async function removeDrinkOrder(id) { try { await invoke('remove_drink_order', { orderId: id }); showToast('İçecek kaldırıldı'); renderActiveSessions(); if (currentTab === 'drinks') loadStationDrinks(); } catch (e) { showToast('Hata: ' + e, 'error'); } }
+        async function removeDrinkOrder(id) { try { await invoke('remove_drink_order', { orderId: id }); showToast('İçecek kaldırıldı'); if (currentTab === 'dashboard') loadStations(); if (currentTab === 'drinks') loadStationDrinks(); } catch (e) { showToast('Hata: ' + e, 'error'); } }
 
         async function removeSessionDrink(orderId, stationId) {
             try {
                 await invoke('remove_drink_order', { orderId });
                 showToast('İçecek kaldırıldı');
-                renderActiveSessions();
+                if (currentTab === 'dashboard') loadStations();
                 if (currentTab === 'drinks') loadDrinks();
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -1639,7 +1583,7 @@
                 await invoke('order_drink', { sessionId: stationId, drinkId, quantity: 1 });
                 showToast('Masaya eklendi!');
                 closeQuickAddDrink();
-                renderActiveSessions();
+                if (currentTab === 'dashboard') loadStations();
                 if (currentTab === 'drinks') loadDrinks();
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -1841,18 +1785,18 @@
         // ─── Duraklat / Sürdür ─────────────────────────────
 
         async function pauseSession(stationId) {
-            try { await invoke('pause_session', { stationId }); showToast('Oturum duraklatıldı'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('pause_session', { stationId }); showToast('Oturum duraklatıldı'); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         async function resumeSession(stationId) {
-            try { await invoke('resume_session', { stationId }); showToast('Oturum devam ediyor'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('resume_session', { stationId }); showToast('Oturum devam ediyor'); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Ekstra Kumanda ────────────────────────────────
 
         async function changeExtraControllers(stationId, value) {
             const next = Math.max(0, parseInt(value || '0', 10));
-            try { await invoke('update_session_extra_controllers', { stationId, extraControllers: next }); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_session_extra_controllers', { stationId, extraControllers: next }); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Notlar ─────────────────────────────────────────
@@ -1868,7 +1812,7 @@
             const stationId = document.getElementById('notes-station-id').value;
             const notes = document.getElementById('notes-text').value.trim();
             const tags = document.getElementById('notes-tags').value.trim();
-            try { await invoke('update_session_notes', { stationId, notes, tags }); closeModal('modal-notes'); showToast('Notlar güncellendi'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_session_notes', { stationId, notes, tags }); closeModal('modal-notes'); showToast('Notlar güncellendi'); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Başlangıç Saati ────────────────────────────────
@@ -1890,7 +1834,7 @@
             const stationId = document.getElementById('edit-start-station-id').value;
             const v = document.getElementById('edit-start-datetime').value;
             if (!v) { showToast('Tarih ve saat gerekli!', 'error'); return; }
-            try { await invoke('update_session_start_time', { stationId, newStartTime: new Date(v).toISOString() }); closeModal('modal-edit-start'); showToast('Başlangıç saati güncellendi'); loadDashboard(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_session_start_time', { stationId, newStartTime: new Date(v).toISOString() }); closeModal('modal-edit-start'); showToast('Başlangıç saati güncellendi'); if (currentTab === 'dashboard') { loadDashboard(); loadStations(); } } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── İstasyon Ekleme/Düzenleme ─────────────────────
