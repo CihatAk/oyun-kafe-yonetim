@@ -290,6 +290,8 @@
   var timer = null;
   var cache = { overview: null, stations: [], sessions: [], drinks: [], history: [], dayEnd: null };
   var dayEndDate = todayStr();
+  var lastSyncTime = 0;
+  var forceRefresh = false;
 
   function showApp(){
     $('boot-screen').classList.add('hidden');
@@ -324,6 +326,7 @@
     currentTab = t;
     Array.prototype.forEach.call(document.querySelectorAll('nav button'), function(b){ b.classList.toggle('active', b.dataset.tab === t); });
     Array.prototype.forEach.call(document.querySelectorAll('main section'), function(s){ s.classList.toggle('active', s.id === 'tab-'+t); });
+    forceRefresh = true; // Tab değişikliğinde veri güncelle
     refresh();
   }
 
@@ -336,6 +339,7 @@
   $('refresh-btn').addEventListener('click', function(){
     var btn = this;
     btn.classList.remove('spin'); void btn.offsetWidth; btn.classList.add('spin');
+    forceRefresh = true; // Zorla yenile
     refresh();
   });
 
@@ -362,19 +366,30 @@
 
   function refresh(){
     setClock();
-    sbGet('kafe_overview?id=eq.1&select=*').then(function(rows){ if(rows && rows.length){ cache.overview = rows[0]; } }).catch(function(){ setOff(); });
-    sbGet('kafe_stations?select=*').then(function(rows){ cache.stations = rows||[]; }).catch(function(){ setOff(); });
-    sbGet('kafe_sessions?select=*').then(function(rows){ cache.sessions = rows||[]; }).catch(function(){ setOff(); });
-    sbGet('kafe_drinks?select=*').then(function(rows){ cache.drinks = rows||[]; }).catch(function(){ setOff(); });
-    sbGet('kafe_history?select=*&order=updated_at.desc&limit=30').then(function(rows){ cache.history = rows||[]; }).catch(function(){ setOff(); });
-    sbGet('kafe_day_end?id=eq.' + dayEndDate + '&select=*').then(function(rows){ cache.dayEnd = (rows && rows.length) ? rows[0] : null; }).catch(function(){ setOff(); });
+    var now = Date.now();
+    var cacheValid = !forceRefresh && (now - lastSyncTime < 5000); // 5 saniye içinde yeniden çekme
+
+    var overviewPromise = cacheValid && cache.overview ? Promise.resolve([cache.overview]) : sbGet('kafe_overview?id=eq.1&select=*');
+    var stationsPromise = cacheValid && cache.stations.length ? Promise.resolve(cache.stations) : sbGet('kafe_stations?select=*');
+    var sessionsPromise = cacheValid && cache.sessions.length ? Promise.resolve(cache.sessions) : sbGet('kafe_sessions?select=*');
+    var drinksPromise = cacheValid && cache.drinks.length ? Promise.resolve(cache.drinks) : sbGet('kafe_drinks?select=*');
+    var historyPromise = cacheValid && cache.history.length ? Promise.resolve(cache.history) : sbGet('kafe_history?select=*&order=updated_at.desc&limit=30');
+    var dayEndPromise = cacheValid && cache.dayEnd ? Promise.resolve([cache.dayEnd]) : sbGet('kafe_day_end?id=eq.' + dayEndDate + '&select=*');
+
+    overviewPromise.then(function(rows){ if(rows && rows.length){ cache.overview = rows[0]; } }).catch(function(){ setOff(); });
+    stationsPromise.then(function(rows){ cache.stations = rows||[]; }).catch(function(){ setOff(); });
+    sessionsPromise.then(function(rows){ cache.sessions = rows||[]; }).catch(function(){ setOff(); });
+    drinksPromise.then(function(rows){ cache.drinks = rows||[]; }).catch(function(){ setOff(); });
+    historyPromise.then(function(rows){ cache.history = rows||[]; }).catch(function(){ setOff(); });
+    dayEndPromise.then(function(rows){ cache.dayEnd = (rows && rows.length) ? rows[0] : null; }).catch(function(){ setOff(); });
+
     Promise.all([
-      sbGet('kafe_overview?id=eq.1&select=*'),
-      sbGet('kafe_stations?select=*'),
-      sbGet('kafe_sessions?select=*'),
-      sbGet('kafe_drinks?select=*'),
-      sbGet('kafe_history?select=*&order=updated_at.desc&limit=30'),
-      sbGet('kafe_day_end?id=eq.' + dayEndDate + '&select=*')
+      overviewPromise,
+      stationsPromise,
+      sessionsPromise,
+      drinksPromise,
+      historyPromise,
+      dayEndPromise
     ]).then(function(res){
       if(res[0] && res[0].length) cache.overview = res[0][0];
       cache.stations = res[1]||[]; cache.sessions = res[2]||[];
@@ -383,6 +398,8 @@
       $('status-dot').classList.remove('off');
       var d = new Date();
       $('last-upd').textContent = d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      lastSyncTime = now;
+      forceRefresh = false;
       renderAll();
     }).catch(function(){ setOff(); });
   }

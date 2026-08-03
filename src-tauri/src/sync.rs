@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use crate::db::{get_data_dir, get_db_path};
 use crate::queries;
 
-const SYNC_SECONDS: u64 = 10;
+const SYNC_SECONDS: u64 = 5;
 const STALE_AFTER_SECONDS: i64 = 30;
 const HISTORY_SYNC_DAYS: i64 = 30;
 
