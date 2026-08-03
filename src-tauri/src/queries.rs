@@ -15,16 +15,13 @@ pub fn scalar_f64(conn: &Connection, sql: &str, p: impl rusqlite::Params) -> f64
 
 pub fn session_fee(
     conn: &Connection,
-    station_id: &str,
+    _station_id: &str,
     rate_type: &str,
     start_str: &str,
     paused_at: Option<&str>,
     total_paused: i64,
     extra_controllers: i64,
 ) -> (i64, i64, f64, f64, bool) {
-    let st_type: String = conn
-        .query_row("SELECT COALESCE(station_type,'standard') FROM stations WHERE id = ?1", params![station_id], |r| r.get(0))
-        .unwrap_or_else(|_| "standard".into());
     let start = DateTime::parse_from_rfc3339(start_str)
         .map(|d| d.with_timezone(&Local))
         .unwrap_or_else(|_| Local::now());
@@ -42,9 +39,7 @@ pub fn session_fee(
     let mins = eff_secs / 60;
     let secs = eff_secs % 60;
     let pricing = AppState::load_pricing_conn(conn);
-    let per_min = if st_type == "vip" {
-        pricing.vip_per_minute
-    } else if rate_type == "nakit" {
+    let per_min = if rate_type == "nakit" {
         pricing.cash_per_minute
     } else {
         pricing.card_per_minute
@@ -64,12 +59,6 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
     let active = scalar_i64(conn, "SELECT COUNT(*) FROM active_sessions", []);
     let idle = scalar_i64(conn, "SELECT COUNT(*) FROM stations WHERE status = 'idle'", []);
     let total = scalar_i64(conn, "SELECT COUNT(*) FROM stations", []);
-    let vip_total = scalar_i64(conn, "SELECT COUNT(*) FROM stations WHERE station_type = 'vip'", []);
-    let vip_busy = scalar_i64(
-        conn,
-        "SELECT COUNT(*) FROM stations s JOIN active_sessions a ON a.station_id = s.id WHERE s.station_type = 'vip'",
-        [],
-    );
     let today_rev = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1", params![today]);
     let today_drinks = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE date(order_time) = ?1", params![today]);
     let today_sessions = scalar_i64(conn, "SELECT COUNT(*) FROM session_history WHERE date(end_time) = ?1", params![today]);
@@ -171,7 +160,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
     json!({
         "server_time": Local::now().to_rfc3339(),
         "today": today,
-        "summary": { "active": active, "idle": idle, "total": total, "vip_total": vip_total, "busy_vip": vip_busy },
+        "summary": { "active": active, "idle": idle, "total": total },
         "today_revenue": today_rev,
         "today_drinks": today_drinks,
         "today_sessions": today_sessions,

@@ -87,6 +87,16 @@ fn run_once() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let now = Local::now().to_rfc3339();
 
+    // Her tablo ayrı ayrı eşitlenir; tek tabloda yaşanacak bir hata (ör. Supabase
+    // şemasında eksik sütun) diğer tabloların eşitlenmesini engellemez.
+    let mut errors: Vec<String> = Vec::new();
+    let mut push_err = |res: Result<(), String>| {
+        if let Err(e) = res {
+            eprintln!("[supabase] {}: {}", Local::now().to_rfc3339(), e);
+            errors.push(e);
+        }
+    };
+
     let ov = queries::overview(&conn);
     let summary = &ov["summary"];
     let overview_row = json!({
@@ -94,8 +104,6 @@ fn run_once() -> Result<(), String> {
         "active_count": summary["active"],
         "idle_count": summary["idle"],
         "total_stations": summary["total"],
-        "vip_total": summary["vip_total"],
-        "busy_vip": summary["busy_vip"],
         "today_revenue": ov["today_revenue"],
         "today_drinks": ov["today_drinks"],
         "today_sessions": ov["today_sessions"],
@@ -103,7 +111,7 @@ fn run_once() -> Result<(), String> {
         "low_stock_threshold": ov["low_stock_threshold"],
         "updated_at": now,
     });
-    upsert(&client, &cfg, "kafe_overview", &[overview_row])?;
+    push_err(upsert(&client, &cfg, "kafe_overview", &[overview_row]));
 
     let stations: Vec<Value> = ov["stations"]
         .as_array()
@@ -118,7 +126,7 @@ fn run_once() -> Result<(), String> {
             })
         })
         .collect();
-    upsert(&client, &cfg, "kafe_stations", &stations)?;
+    push_err(upsert(&client, &cfg, "kafe_stations", &stations));
 
     let sessions: Vec<Value> = ov["sessions"]
         .as_array()
@@ -135,8 +143,8 @@ fn run_once() -> Result<(), String> {
             })
         })
         .collect();
-    upsert(&client, &cfg, "kafe_sessions", &sessions)?;
-    delete_stale_sessions(&client, &cfg)?;
+    push_err(upsert(&client, &cfg, "kafe_sessions", &sessions));
+    push_err(delete_stale_sessions(&client, &cfg));
 
     let drinks_val = queries::drinks(&conn);
     let drinks: Vec<Value> = drinks_val
@@ -153,7 +161,7 @@ fn run_once() -> Result<(), String> {
             })
         })
         .collect();
-    upsert(&client, &cfg, "kafe_drinks", &drinks)?;
+    push_err(upsert(&client, &cfg, "kafe_drinks", &drinks));
 
     let hist_val = queries::history_since_days(&conn, HISTORY_SYNC_DAYS);
     let hist: Vec<Value> = hist_val
@@ -172,11 +180,11 @@ fn run_once() -> Result<(), String> {
             })
         })
         .collect();
-    upsert(&client, &cfg, "kafe_history", &hist)?;
+    push_err(upsert(&client, &cfg, "kafe_history", &hist));
 
     let today = Local::now().format("%Y-%m-%d").to_string();
     let de = queries::day_end(&conn, &today);
-    upsert(&client, &cfg, "kafe_day_end", &[day_end_row(&today, &de, &now)])?;
+    push_err(upsert(&client, &cfg, "kafe_day_end", &[day_end_row(&today, &de, &now)]));
 
     let mut recent_dates: Vec<String> = Vec::new();
     if let Ok(mut stmt) = conn.prepare(
@@ -193,10 +201,14 @@ fn run_once() -> Result<(), String> {
             continue;
         }
         let de = queries::day_end(&conn, &d);
-        upsert(&client, &cfg, "kafe_day_end", &[day_end_row(&d, &de, &now)])?;
+        push_err(upsert(&client, &cfg, "kafe_day_end", &[day_end_row(&d, &de, &now)]));
     }
 
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
 }
 
 fn day_end_row(date: &str, de: &Value, now: &str) -> Value {

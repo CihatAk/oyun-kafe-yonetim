@@ -30,7 +30,7 @@ pub fn start_session(station_id: String, customer: String, rate_type: String, no
     };
     conn.execute("INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type, notes, tags, paused_at, total_paused_seconds, extra_controllers) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, 0, ?8)",
         params![session.station_id, session.station_name, session.customer, session.start_time, session.rate_type, session.notes, session.tags, extra]).map_err(|e| e.to_string())?;
-    log_audit_conn(&conn, &state, "start_session", "sessions", format!("{} - {} (ekstra kol: {})", session.station_name, session.customer, extra).as_str());
+    log_audit_conn(&conn, &state, "start_session", "sessions", format!("{} (ekstra kol: {})", session.station_name, extra).as_str());
     Ok(session)
 }
 
@@ -79,7 +79,6 @@ pub fn get_active_sessions(state: State<AppState>) -> Result<Vec<ActiveSession>,
 
 #[tauri::command]
 pub fn update_session_start_time(station_id: String, new_start_time: String, state: State<AppState>) -> Result<ActiveSession, String> {
-    crate::commands::auth::require_admin(&state)?;
     let _p: DateTime<Local> = DateTime::parse_from_rfc3339(&new_start_time).map_err(|e| format!("Geçersiz tarih: {}", e))?.with_timezone(&Local);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET start_time = ?1 WHERE station_id = ?2", params![new_start_time, station_id]).map_err(|_| "Oturum bulunamadı")?;
@@ -197,13 +196,10 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
             params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, discount_reason_saved, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE drink_orders SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE partial_payments SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
-        if let Some(u) = state.current_user.lock().ok().and_then(|g| g.clone()) {
-            let _ = conn.execute("UPDATE shifts SET total_sessions = total_sessions + 1, total_revenue = total_revenue + ?1 WHERE user_id = ?2 AND status = 'open'", params![total_final, u.id]);
-        }
         let audit_detail = if discount > 0.0 {
-            format!("{} - {} (₺{:.2}, indirim: ₺{:.2})", station_name, customer, total_final, discount)
+            format!("{} (₺{:.2}, indirim: ₺{:.2})", station_name, total_final, discount)
         } else {
-            format!("{} - {} (₺{:.2})", station_name, customer, total_final)
+            format!("{} (₺{:.2})", station_name, total_final)
         };
         log_audit_conn(&conn, &state, "end_session", "sessions", audit_detail.as_str());
         Ok(())

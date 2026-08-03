@@ -143,7 +143,6 @@
                         <span class="text-slate-300" id="current-user-label">Giriş yapılmadı</span>
                         <span class="text-slate-600">/</span>
                         <span class="text-slate-500" id="current-role-label">-</span>
-                        <button onclick="openShiftModal()" id="shift-btn" class="px-2 py-0.5 bg-amber-600/70 hover:bg-amber-500 rounded-lg text-xs font-medium transition" title="Vardiya">🕐 Vardiya</button>
                         <button onclick="openPasswordModal()" class="px-2 py-0.5 bg-slate-600/70 hover:bg-slate-500 rounded-lg text-xs font-medium transition" title="Şifre Değiştir">🔑</button>
                         <button onclick="doLogout()" class="px-2 py-0.5 bg-red-600/70 hover:bg-red-500 rounded-lg text-xs font-medium transition" title="Çıkış">🚪 Çıkış</button>
                     </div>
@@ -334,21 +333,27 @@
                         <p class="text-xs text-slate-500 mt-0.5">Oturum ücreti seçilen ödeme yöntemi üzerinden hesaplanır</p>
                     </div>
                     <div class="p-6 space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
                                 <label class="block text-emerald-300 text-sm font-medium mb-2">💵 Nakit (₺/dk)</label>
                                 <input type="number" id="price-cash" step="0.01" oninput="updatePricePreview()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition" placeholder="4.20">
+                                <p class="text-xs text-slate-500 mt-1.5">Nakit ödemeli oturumlarda her dakika için geçerli ücret</p>
                             </div>
                             <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
                                 <label class="block text-blue-300 text-sm font-medium mb-2">💳 Kart (₺/dk)</label>
                                 <input type="number" id="price-card" step="0.01" oninput="updatePricePreview()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition" placeholder="5.00">
-                            </div>
-                            <div class="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
-                                <label class="block text-purple-300 text-sm font-medium mb-2">⭐ VIP (₺/dk)</label>
-                                <input type="number" id="price-vip" step="0.01" oninput="updatePricePreview()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition" placeholder="6.00">
+                                <p class="text-xs text-slate-500 mt-1.5">Kart ödemeli oturumlarda her dakika için geçerli ücret</p>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="price-preview-row"></div>
+                        <div class="glass rounded-xl border border-slate-700/50">
+                            <div class="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+                                <span class="text-sm font-medium text-slate-300">🔮 Canlı Tahmini Ücret</span>
+                                <span class="text-[11px] text-slate-500">Yuvarlama ve minimum ücret hesaba katılır</span>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="price-preview-row"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -361,24 +366,32 @@
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">Minimum Ücret (₺)</label>
                             <input type="number" id="price-min" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="0">
+                            <p class="text-xs text-slate-500 mt-1.5">Oturum ücreti bu tutarın altında kalamaz. 0 = uygulanmaz.</p>
                         </div>
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">Yuvarlama (dakika)</label>
                             <input type="number" id="price-round" step="1" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="1">
+                            <p class="text-xs text-slate-500 mt-1.5">Örn: 5 yazarsanız 12 dk → 15 dk olarak ücretlendirilir.</p>
                         </div>
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">Maks. Süre (dk, 0=sınırsız)</label>
                             <input type="number" id="price-max-session" step="1" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="0">
+                            <p class="text-xs text-slate-500 mt-1.5">0'dan büyükse istasyon kartında geri sayım ve uyarı gösterilir.</p>
                         </div>
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">Uyarı Süresi (dk, bitişten önce)</label>
                             <input type="number" id="price-warning" step="1" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="5">
+                            <p class="text-xs text-slate-500 mt-1.5">Maks. süreye kalan bu süre içinde otomatik uyarı gösterilir.</p>
                         </div>
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">🎮 Ekstra Kumanda (₺/saat)</label>
                             <input type="number" id="price-extra-controller" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition" placeholder="75">
+                            <p class="text-xs text-slate-500 mt-1.5">Oturuma eklenen her ekstra kumanda için saatlik ücret.</p>
                         </div>
-                        <button onclick="savePricing()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-semibold transition">💾 Ayarları Kaydet</button>
+                        <div class="flex gap-3">
+                            <button onclick="savePricing()" class="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-semibold transition">💾 Ayarları Kaydet</button>
+                            <button onclick="resetPricingDefaults()" class="py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition" title="Varsayılanlara dön">♻️</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -411,7 +424,6 @@
                             <option value="nakit">💵 Nakit</option>
                             <option value="kart">💳 Kart</option>
                         </select>
-                        <input type="text" id="hist-filter-customer" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white w-32 focus:outline-none focus:border-cyan-500" placeholder="👤 Müşteri">
                         <input type="number" id="hist-filter-min-dur" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white w-20 focus:outline-none focus:border-cyan-500" placeholder="Min dk" title="Minimum süre (dk)">
                         <input type="number" id="hist-filter-max-dur" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white w-20 focus:outline-none focus:border-cyan-500" placeholder="Max dk" title="Maksimum süre (dk)">
                         <button onclick="applyHistoryFilter()" class="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium transition">🔍 Filtrele</button>
@@ -421,9 +433,9 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                            <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">İstasyon</th><th class="p-3 font-medium">Müşteri</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">İçecek</th><th class="p-3 font-medium">İndirim</th><th class="p-3 font-medium">Toplam</th><th class="p-3 font-medium">Ödeme</th><th class="p-3 font-medium">Fiş</th>
+                            <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">İstasyon</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">İçecek</th><th class="p-3 font-medium">İndirim</th><th class="p-3 font-medium">Toplam</th><th class="p-3 font-medium">Ödeme</th><th class="p-3 font-medium">Fiş</th>
                         </tr></thead>
-                        <tbody id="history-body"><tr><td colspan="10" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
+                        <tbody id="history-body"><tr><td colspan="9" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -451,43 +463,24 @@
             <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h2 class="text-xl font-semibold">👥 Personel Yönetimi</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Kullanıcıları, yetkileri ve vardiya kayıtlarını yönetin</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Kullanıcıları ve yetkilerini yönetin</p>
                 </div>
                 <button onclick="openUserModal()" id="add-user-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">+ Kullanıcı Ekle</button>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div class="xl:col-span-1 glass rounded-2xl overflow-hidden">
-                    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-semibold">Kullanıcılar</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">Toplam <span id="users-count">0</span> hesap</p>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                                <th class="p-3 font-medium">Ad</th><th class="p-3 font-medium">Rol</th><th class="p-3 font-medium">Durum</th><th class="p-3 font-medium">İşlem</th>
-                            </tr></thead>
-                            <tbody id="users-body"><tr><td colspan="4" class="p-8 text-center text-slate-500">Kullanıcı bulunamadı</td></tr></tbody>
-                        </table>
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold">Kullanıcılar</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Toplam <span id="users-count">0</span> hesap</p>
                     </div>
                 </div>
-                <div class="xl:col-span-2 glass rounded-2xl overflow-hidden">
-                    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between gap-3 flex-wrap">
-                        <div>
-                            <h3 class="font-semibold">Vardiyalar</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">Giriş-çıkış ve oturum performansı</p>
-                        </div>
-                        <select id="shift-user-filter" onchange="renderShifts()" class="bg-slate-800 rounded-lg px-3 py-1.5 text-sm"></select>
-                    </div>
-                    <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
-                        <table class="w-full text-left">
-                            <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                                <th class="p-3 font-medium">Personel</th><th class="p-3 font-medium">Giriş</th><th class="p-3 font-medium">Çıkış</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">Gelir</th>
-                            </tr></thead>
-                            <tbody id="shifts-body"><tr><td colspan="6" class="p-8 text-center text-slate-500">Vardiya kaydı yok</td></tr></tbody>
-                        </table>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
+                            <th class="p-3 font-medium">Ad</th><th class="p-3 font-medium">Rol</th><th class="p-3 font-medium">Durum</th><th class="p-3 font-medium">İşlem</th>
+                        </tr></thead>
+                        <tbody id="users-body"><tr><td colspan="4" class="p-8 text-center text-slate-500">Kullanıcı bulunamadı</td></tr></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -538,18 +531,6 @@
                 <p id="login-error" class="hidden text-red-400 text-sm"></p>
                 <button onclick="doLogin()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition">Giriş Yap</button>
             </div>
-        </div>
-    </div>
-
-    <!-- Vardiya Modal -->
-    <div id="modal-shift" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-shift')">
-        <div class="glass rounded-2xl p-8 w-[460px] slide-in">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-bold">🕐 Vardiya Yönetimi</h3>
-                <button onclick="closeModal('modal-shift')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
-            </div>
-            <div id="shift-status-area" class="mb-6"></div>
-            <div id="shift-actions" class="space-y-3"></div>
         </div>
     </div>
 
@@ -641,10 +622,6 @@
                     <input type="hidden" id="start-station-id">
                 </div>
                 <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Müşteri Adı *</label>
-                    <input type="text" id="start-customer" placeholder="Müşteri adı" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                </div>
-                <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Ödeme Yöntemi</label>
                     <select id="start-payment-hint" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                         <option value="nakit">💵 Nakit</option>
@@ -681,7 +658,6 @@
             <div class="px-6 py-4 space-y-4 overflow-y-auto flex-1">
                 <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
                     <div class="flex justify-between text-sm"><span class="text-slate-400">İstasyon:</span><span id="end-station-name" class="font-semibold text-white"></span></div>
-                    <div class="flex justify-between text-sm"><span class="text-slate-400">Müşteri:</span><span id="end-customer-name" class="font-semibold text-white"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Süre:</span><span id="end-duration" class="font-semibold text-cyan-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Oturum Ücreti:</span><span id="end-session-fee" class="font-semibold text-emerald-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Ekstra Kumanda:</span><span id="end-extra-fee" class="font-semibold text-orange-400"></span></div>
@@ -750,7 +726,6 @@
             <div class="space-y-4">
                 <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
                     <div class="flex justify-between text-sm"><span class="text-slate-400">İstasyon:</span><span id="edit-start-station" class="font-semibold text-white"></span></div>
-                    <div class="flex justify-between text-sm"><span class="text-slate-400">Müşteri:</span><span id="edit-start-customer" class="font-semibold text-white"></span></div>
                 </div>
                 <input type="hidden" id="edit-start-station-id">
                 <div>
@@ -783,7 +758,7 @@
                 </div>
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Etiketler (virgülle ayırın)</label>
-                    <input type="text" id="notes-tags" placeholder="ör: vip, grup" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                    <input type="text" id="notes-tags" placeholder="ör: grup, özel" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                 </div>
                 <div class="flex gap-3 mt-4">
                     <button onclick="closeModal('modal-notes')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
@@ -804,13 +779,6 @@
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">İstasyon Adı *</label>
                     <input type="text" id="new-station-name" placeholder="Örn: PC-07" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Tip</label>
-                    <select id="new-station-type" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                        <option value="standard">Standart</option>
-                        <option value="vip">VIP</option>
-                    </select>
                 </div>
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Grup</label>
@@ -836,13 +804,6 @@
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">İstasyon Adı *</label>
                     <input type="text" id="edit-station-name" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Tip</label>
-                    <select id="edit-station-type" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                        <option value="standard">Standart</option>
-                        <option value="vip">VIP</option>
-                    </select>
                 </div>
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Grup</label>
@@ -1137,6 +1098,7 @@
         // ─── Tab Switch ──────────────────────────────────────
 
         function switchTab(tab) {
+            if (tab === 'pricing' && currentUser && currentUser.role !== 'admin') { showToast('Bu sayfaya yalnızca yöneticiler erişebilir', 'error'); return; }
             currentTab = tab;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById('tab-' + tab).classList.remove('hidden');
@@ -1319,9 +1281,9 @@
                         }
                         drinkChips += ` <button onclick="openQuickAddDrink('${st.id}')" class="inline-flex items-center px-1.5 py-0.5 bg-cyan-600/60 hover:bg-cyan-500 rounded text-xs font-medium transition" title="İçecek Ekle">+</button>`;
                         liveBlock = `
-                            <div class="flex items-center justify-between gap-2 mt-3 text-sm">
-                                <span class="text-slate-300 flex items-center gap-1.5 min-w-0"><span>👤</span><span class="truncate font-medium">${escHtml(sess.customer)}</span></span>
-                                <span class="text-slate-500 font-mono text-xs whitespace-nowrap">${new Date(sess.start_time).toLocaleTimeString('tr-TR')}</span>
+                            <div class="flex items-center justify-between gap-2 mt-3 rounded-lg bg-slate-800/40 px-3 py-2">
+                                <span class="text-[11px] text-slate-400">🕐 Başlangıç</span>
+                                <span class="text-slate-300 font-mono text-xs whitespace-nowrap">${new Date(sess.start_time).toLocaleTimeString('tr-TR')}</span>
                             </div>
                             <div class="grid grid-cols-2 gap-2 mt-2">
                                 <div class="rounded-lg bg-slate-800/50 px-3 py-2 ${isPaused ? 'opacity-60' : ''}">
@@ -1345,7 +1307,7 @@
                     }
 
                     const primaryBtn = isActive
-                        ? `<button onclick="openEndModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2.5 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-semibold transition">Sonlandır</button>`
+                        ? `<button onclick="openEndModal('${st.id}', '${esc(st.name)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2.5 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-semibold transition">Sonlandır</button>`
                         : `<button onclick="openStartModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold transition">Oturum Başlat</button>`;
 
                     let iconBtns = '';
@@ -1354,9 +1316,9 @@
                             ? `<button onclick="resumeSession('${st.id}')" class="w-10 py-2.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-xl text-sm transition" title="Sürdür">▶️</button>`
                             : `<button onclick="pauseSession('${st.id}')" class="w-10 py-2.5 bg-amber-600/80 hover:bg-amber-500 rounded-xl text-sm transition" title="Duraklat">⏸️</button>`;
                         iconBtns += `<button onclick="openNotesModal('${st.id}', '${esc(sess.notes || '')}', '${esc(sess.tags || '')}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Notlar">📝</button>`;
-                        if (isAdmin) iconBtns += `<button onclick="openEditStartTimeModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', '${sess.start_time}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Saat Düzenle">🕐</button>`;
+                        iconBtns += `<button onclick="openEditStartTimeModal('${st.id}', '${esc(st.name)}', '${sess.start_time}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Saat Düzenle">🕐</button>`;
                     } else if (isAdmin) {
-                        iconBtns += `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${st.station_type}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="İstasyon Düzenle">✏️</button>`;
+                        iconBtns += `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="İstasyon Düzenle">✏️</button>`;
                     }
 
                     const idleHint = isActive ? '' : '<div class="text-xs text-slate-500 mt-3">Boş istasyon — oturum başlatabilirsiniz</div>';
@@ -1365,7 +1327,7 @@
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <h3 class="text-base font-bold text-white truncate">${escHtml(st.name)}</h3>
-                                <p class="text-[11px] text-slate-500 mt-0.5">${st.station_type === 'vip' ? '⭐ VIP' : '🖥️ Standart'}${st.group_name ? ' · 📁 ' + escHtml(st.group_name) : ''}</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">${st.group_name ? '📁 ' + escHtml(st.group_name) : '🖥️ Standart İstasyon'}</p>
                             </div>
                             ${statusPill}
                         </div>
@@ -1567,7 +1529,6 @@
                         <div class="flex items-center justify-between mb-3">
                             <div>
                                 <h4 class="font-bold text-cyan-400">${escHtml(s.station_name)}</h4>
-                                <p class="text-xs text-slate-500">${escHtml(s.customer)}</p>
                             </div>
                             <span class="text-sm font-bold text-amber-400">₺${drinkTotal.toFixed(2)}</span>
                         </div>
@@ -1610,7 +1571,7 @@
                 let dropdown = document.getElementById('quick-add-drink-dropdown');
                 if (!dropdown) { dropdown = document.createElement('div'); dropdown.id = 'quick-add-drink-dropdown'; document.body.appendChild(dropdown); }
                 dropdown.className = 'fixed z-50 glass rounded-xl shadow-2xl p-2 w-72 max-h-80 overflow-y-auto';
-                dropdown.innerHTML = `<div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)} - ${escHtml(session.customer)}</div>${listHtml}<button onclick="closeQuickAddDrink()" class="w-full mt-1 py-1 text-xs text-slate-400 hover:text-white transition">Kapat</button>`;
+                dropdown.innerHTML = `<div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)}</div>${listHtml}<button onclick="closeQuickAddDrink()" class="w-full mt-1 py-1 text-xs text-slate-400 hover:text-white transition">Kapat</button>`;
                 dropdown.style.top = '50%'; dropdown.style.left = '50%'; dropdown.style.transform = 'translate(-50%, -50%)';
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -1651,7 +1612,7 @@
                 }
                 dropdown.className = 'fixed z-50 glass rounded-xl shadow-2xl p-2 w-72 max-h-80 overflow-y-auto';
                 dropdown.innerHTML = `
-                    <div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)} - ${escHtml(session.customer)}</div>
+                    <div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)}</div>
                     ${listHtml}
                     <button onclick="closeQuickAddDrink()" class="w-full mt-1 py-1 text-xs text-slate-400 hover:text-white transition">Kapat</button>
                 `;
@@ -1687,11 +1648,10 @@
         function openStartModal(stationId, stationName) {
             document.getElementById('start-station-id').value = stationId;
             document.getElementById('start-station-name').value = stationName;
-            document.getElementById('start-customer').value = '';
             document.getElementById('start-notes').value = '';
             document.getElementById('start-extra-controllers').value = 0;
             openModal('modal-start');
-            setTimeout(() => document.getElementById('start-customer').focus(), 100);
+            setTimeout(() => document.getElementById('start-payment-hint').focus(), 100);
         }
 
         function adjustExtraControllers(delta) {
@@ -1701,13 +1661,11 @@
 
         async function confirmStartSession() {
             const stationId = document.getElementById('start-station-id').value;
-            const customer = document.getElementById('start-customer').value.trim();
             const paymentHint = document.getElementById('start-payment-hint').value;
             const notes = document.getElementById('start-notes').value.trim();
             const extraControllers = parseInt(document.getElementById('start-extra-controllers').value, 10) || 0;
-            if (!customer) { showToast('Müşteri adı gerekli!', 'error'); return; }
             try {
-                await invoke('start_session', { stationId, customer, rateType: paymentHint, notes, tags: '', extraControllers });
+                await invoke('start_session', { stationId, customer: '', rateType: paymentHint, notes, tags: '', extraControllers });
                 closeModal('modal-start');
                 showToast('Oturum başlatıldı!');
                 if (currentTab === 'dashboard') { loadDashboard(); loadStations(); }
@@ -1720,12 +1678,11 @@
         let endTimeMode = 'auto';
         let partialPayments = [];
 
-        async function openEndModal(stationId, stationName, customer, duration) {
-            endSessionData = { stationId, stationName, customer, duration };
+        async function openEndModal(stationId, stationName, duration) {
+            endSessionData = { stationId, stationName, duration };
             partialPayments = [];
             document.getElementById('end-station-id').value = stationId;
             document.getElementById('end-station-name').textContent = stationName;
-            document.getElementById('end-customer-name').textContent = customer;
             document.getElementById('end-duration').textContent = duration + ' dk';
             document.getElementById('end-duration-mins').value = duration;
             document.getElementById('end-custom-datetime').value = '';
@@ -1901,10 +1858,9 @@
 
         // ─── Başlangıç Saati ────────────────────────────────
 
-        function openEditStartTimeModal(stationId, stationName, customer, startTime) {
+        function openEditStartTimeModal(stationId, stationName, startTime) {
             document.getElementById('edit-start-station-id').value = stationId;
             document.getElementById('edit-start-station').textContent = stationName;
-            document.getElementById('edit-start-customer').textContent = customer;
             const dt = new Date(startTime);
             document.getElementById('edit-start-datetime').value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
             openModal('modal-edit-start');
@@ -1932,16 +1888,14 @@
 
         async function confirmAddStation() {
             const name = document.getElementById('new-station-name').value.trim();
-            const type = document.getElementById('new-station-type').value;
             const group = document.getElementById('new-station-group').value.trim();
             if (!name) { showToast('İstasyon adı gerekli!', 'error'); return; }
-            try { await invoke('add_station', { name, stationType: type, groupName: group }); closeModal('modal-add-station'); showToast('İstasyon eklendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('add_station', { name, groupName: group }); closeModal('modal-add-station'); showToast('İstasyon eklendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
-        function openEditStationModal(id, name, type, group, totalSessions, totalRevenue) {
+        function openEditStationModal(id, name, group, totalSessions, totalRevenue) {
             document.getElementById('edit-station-id').value = id;
             document.getElementById('edit-station-name').value = name.replace(/\\'/g, "'");
-            document.getElementById('edit-station-type').value = type;
             document.getElementById('edit-station-group').value = (group || '').replace(/\\'/g, "'");
             document.getElementById('edit-station-stats').innerHTML = `<div>📊 Toplam Oturum: <span class="text-white font-semibold">${totalSessions}</span></div><div>💰 Toplam Gelir: <span class="text-amber-400 font-semibold">₺${totalRevenue.toFixed(2)}</span></div>`;
             openModal('modal-edit-station');
@@ -1950,10 +1904,9 @@
         async function confirmEditStation() {
             const stationId = document.getElementById('edit-station-id').value;
             const name = document.getElementById('edit-station-name').value.trim();
-            const type = document.getElementById('edit-station-type').value;
             const group = document.getElementById('edit-station-group').value.trim();
             if (!name) { showToast('İstasyon adı gerekli!', 'error'); return; }
-            try { await invoke('update_station', { stationId, name, stationType: type, groupName: group }); closeModal('modal-edit-station'); showToast('İstasyon güncellendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_station', { stationId, name, groupName: group }); closeModal('modal-edit-station'); showToast('İstasyon güncellendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── İçecek Ekleme/Düzenleme ───────────────────────
@@ -2040,7 +1993,7 @@
             const select = document.getElementById('order-session');
             select.innerHTML = '';
             if (sessions.length === 0) { select.innerHTML = '<option value="">Aktif masa yok</option>'; showToast('Eklemek için aktif masa olmalı!', 'error'); return; }
-            sessions.forEach(s => { const opt = document.createElement('option'); opt.value = s.station_id; opt.textContent = `${s.station_name} - ${s.customer}`; select.appendChild(opt); });
+            sessions.forEach(s => { const opt = document.createElement('option'); opt.value = s.station_id; opt.textContent = s.station_name; select.appendChild(opt); });
             openModal('modal-order-drink');
         }
 
@@ -2060,7 +2013,6 @@
                 const c = await invoke('get_pricing');
                 document.getElementById('price-cash').value = c.cash_per_minute;
                 document.getElementById('price-card').value = c.card_per_minute;
-                document.getElementById('price-vip').value = c.vip_per_minute;
                 document.getElementById('price-min').value = c.min_charge;
                 document.getElementById('price-round').value = c.round_minutes;
                 document.getElementById('price-max-session').value = c.max_session_minutes;
@@ -2073,28 +2025,34 @@
         function updatePricePreview() {
             var cash = parseFloat(document.getElementById('price-cash').value);
             var card = parseFloat(document.getElementById('price-card').value);
-            var vip = parseFloat(document.getElementById('price-vip').value);
             if (isNaN(cash)) cash = 4.20;
             if (isNaN(card)) card = 5.00;
-            if (isNaN(vip)) vip = 6.00;
             var row = document.getElementById('price-preview-row');
             if (!row) return;
-            var mk = function (label, color, rate) {
-                var hour = rate * 60;
-                return '<div class="rounded-xl px-4 py-3 text-center">' +
-                    '<div class="text-[11px] text-slate-500 uppercase tracking-wider mb-1">' + label + '</div>' +
-                    '<div class="text-lg font-bold ' + color + '">₺' + hour.toFixed(2) + '</div>' +
-                    '<div class="text-[11px] text-slate-500 mt-0.5">1 saatlik tahmini ücret</div></div>';
+            var mk = function (label, color, rate, emoji) {
+                var round = parseInt(document.getElementById('price-round').value) || 1;
+                var minChg = parseFloat(document.getElementById('price-min').value) || 0;
+                var f = function (mins) {
+                    var chunks = Math.ceil(mins / round);
+                    return Math.max(chunks * round * rate, minChg).toFixed(2);
+                };
+                return '<div class="rounded-xl px-4 py-3 text-center border ' + color.replace('text-', 'bg-').replace(/\d+/g, '') + '/10 border-slate-700/40">' +
+                    '<div class="text-[11px] text-slate-500 uppercase tracking-wider mb-1">' + emoji + ' ' + label + '</div>' +
+                    '<div class="text-xl font-bold ' + color + '">₺' + f(60) + '</div>' +
+                    '<div class="text-[11px] text-slate-500 mt-1">1 saatlik</div>' +
+                    '<div class="flex justify-center gap-3 mt-1.5 text-[11px] text-slate-400">' +
+                    '<span>2 saat: <b class="text-slate-200">₺' + f(120) + '</b></span>' +
+                    '<span>4 saat: <b class="text-slate-200">₺' + f(240) + '</b></span>' +
+                    '</div></div>';
             };
-            row.innerHTML = mk('💵 Nakit', 'text-emerald-300', cash) + mk('💳 Kart', 'text-blue-300', card) + mk('⭐ VIP', 'text-purple-300', vip);
+            row.innerHTML = mk('Nakit', 'text-emerald-300', cash, '💵') + mk('Kart', 'text-blue-300', card, '💳');
         }
 
         function resetPricingDefaults() {
             if (!confirm('Tüm fiyat ayarları varsayılan değerlere dönecek. Devam edilsin mi?')) return;
-            var d = { cash_per_minute: 4.20, card_per_minute: 5.00, vip_per_minute: 6.00, min_charge: 0, round_minutes: 1, max_session_minutes: 0, warning_before_minutes: 5, extra_controller_per_hour: 75 };
+            var d = { cash_per_minute: 4.20, card_per_minute: 5.00, min_charge: 0, round_minutes: 1, max_session_minutes: 0, warning_before_minutes: 5, extra_controller_per_hour: 75 };
             document.getElementById('price-cash').value = d.cash_per_minute;
             document.getElementById('price-card').value = d.card_per_minute;
-            document.getElementById('price-vip').value = d.vip_per_minute;
             document.getElementById('price-min').value = d.min_charge;
             document.getElementById('price-round').value = d.round_minutes;
             document.getElementById('price-max-session').value = d.max_session_minutes;
@@ -2108,7 +2066,6 @@
             const config = {
                 cash_per_minute: parseFloat(document.getElementById('price-cash').value) || 4.20,
                 card_per_minute: parseFloat(document.getElementById('price-card').value) || 5.00,
-                vip_per_minute: parseFloat(document.getElementById('price-vip').value) || 6.00,
                 min_charge: parseFloat(document.getElementById('price-min').value) || 0,
                 round_minutes: parseInt(document.getElementById('price-round').value) || 1,
                 max_session_minutes: parseInt(document.getElementById('price-max-session').value) || 0,
@@ -2147,8 +2104,7 @@
                     : '<span class="text-slate-600">—</span>';
                 return `<tr class="border-b border-slate-700/30 hover:bg-slate-800/30 transition">
                     <td class="p-3 text-slate-300 text-xs">${end.toLocaleDateString('tr-TR')} <span class="text-slate-500">${end.toLocaleTimeString('tr-TR')}</span></td>
-                    <td class="p-3 font-semibold text-cyan-400">${escHtml(h.station_name)}</td>
-                    <td class="p-3">${escHtml(h.customer)} ${noteIcon}</td>
+                    <td class="p-3 font-semibold text-cyan-400">${escHtml(h.station_name)} ${noteIcon}</td>
                     <td class="p-3 text-slate-300">${h.duration_minutes} dk</td>
                     <td class="p-3 font-bold text-emerald-400">₺${(h.total - (h.drink_total || 0)).toFixed(2)}</td>
                     <td class="p-3 font-bold text-amber-400">₺${(h.drink_total || 0).toFixed(2)}</td>
@@ -2166,21 +2122,19 @@
             const ed = document.getElementById('hist-filter-end').value;
             const st = document.getElementById('hist-filter-station').value.trim();
             const pm = document.getElementById('hist-filter-payment').value;
-            const cu = document.getElementById('hist-filter-customer').value.trim();
             const md = document.getElementById('hist-filter-min-dur').value;
             const xd = document.getElementById('hist-filter-max-dur').value;
             if (sd) filter.start_date = sd;
             if (ed) filter.end_date = ed;
             if (st) filter.station_name = st;
             if (pm) filter.payment_method = pm;
-            if (cu) filter.customer = cu;
             if (md) filter.min_duration = parseInt(md);
             if (xd) filter.max_duration = parseInt(xd);
             try { const records = await invoke('get_history_filtered', { filter }); renderHistory(records); showToast(`${records.length} kayıt bulundu`); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         function clearHistoryFilter() {
-            ['hist-filter-start', 'hist-filter-end', 'hist-filter-station', 'hist-filter-customer', 'hist-filter-min-dur', 'hist-filter-max-dur'].forEach(id => document.getElementById(id).value = '');
+            ['hist-filter-start', 'hist-filter-end', 'hist-filter-station', 'hist-filter-min-dur', 'hist-filter-max-dur'].forEach(id => document.getElementById(id).value = '');
             document.getElementById('hist-filter-payment').value = '';
             loadHistory();
         }
@@ -2194,9 +2148,7 @@
         async function exportJSON() { try { const path = await invoke('export_history_json'); showToast('JSON dışa aktarıldı: ' + path); } catch (e) { showToast('Hata: ' + e, 'error'); } }
 
         var currentUser = null;
-        var currentShift = null;
         var lastUsers = [];
-        var lastShifts = [];
 
         async function initAuth() {
             try { currentUser = await invoke('get_current_user'); } catch (e) { currentUser = null; }
@@ -2213,7 +2165,6 @@
             document.getElementById('app').classList.remove('hidden');
             document.getElementById('current-user-label').textContent = '👤 ' + currentUser.full_name + (currentUser.role === 'admin' ? ' (Yönetici)' : '');
             document.getElementById('current-role-label').textContent = currentUser.role === 'admin' ? 'Yönetici' : 'Çalışan';
-            await loadShiftStatus();
             applyRoleGating();
             switchTab('dashboard');
         }
@@ -2239,7 +2190,7 @@
             if (!confirm('Çıkış yapılsın mı?')) return;
             try { await invoke('logout'); } catch (e) { console.error(e); }
             stopLiveUpdates();
-            currentUser = null; currentShift = null;
+            currentUser = null;
             document.getElementById('app').classList.add('hidden');
             document.getElementById('login-overlay').classList.remove('hidden');
             document.getElementById('login-username').value = '';
@@ -2252,6 +2203,7 @@
             var isAdmin = currentUser && currentUser.role === 'admin';
             document.getElementById('add-user-btn').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-personel').classList.toggle('hidden', !isAdmin);
+            document.getElementById('tab-btn-pricing').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-logs').classList.toggle('hidden', !isAdmin);
             document.getElementById('low-stock-setting').classList.toggle('hidden', !isAdmin);
             document.getElementById('add-drink-btn').classList.toggle('hidden', !isAdmin);
@@ -2260,57 +2212,8 @@
             document.getElementById('clear-history-btn').classList.toggle('hidden', !isAdmin);
             if (!isAdmin && currentTab === 'personel') switchTab('dashboard');
             if (!isAdmin && currentTab === 'logs') switchTab('dashboard');
+            if (!isAdmin && currentTab === 'pricing') switchTab('dashboard');
             if (currentTab === 'drinks') loadDrinks();
-        }
-
-        // ─── Vardiya ───────────────────────────────────────
-
-        async function loadShiftStatus() {
-            try { currentShift = await invoke('get_active_shift'); } catch (e) { currentShift = null; }
-            var btn = document.getElementById('shift-btn');
-            if (currentShift) {
-                btn.textContent = '🕐 Açık';
-                btn.className = 'px-2 py-0.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg text-xs font-medium transition';
-            } else {
-                btn.textContent = '🕐 Vardiya';
-                btn.className = 'px-2 py-0.5 bg-amber-600/70 hover:bg-amber-500 rounded-lg text-xs font-medium transition';
-            }
-        }
-
-        function openShiftModal() {
-            openModal('modal-shift');
-            renderShiftModal();
-        }
-
-        function renderShiftModal() {
-            var area = document.getElementById('shift-status-area');
-            var actions = document.getElementById('shift-actions');
-            if (currentShift) {
-                var start = new Date(currentShift.start_time);
-                var minutes = Math.floor((Date.now() - start.getTime()) / 60000);
-                var h = Math.floor(minutes / 60), m = minutes % 60;
-                area.innerHTML = '<div class="rounded-xl bg-emerald-600/15 border border-emerald-600/40 p-4">' +
-                    '<div class="text-sm text-slate-300">Aktif vardiya</div>' +
-                    '<div class="text-lg font-bold mt-1">' + escHtml(currentShift.user_name) + '</div>' +
-                    '<div class="text-sm text-slate-400 mt-1">Giriş: ' + start.toLocaleString('tr-TR') + '</div>' +
-                    '<div class="text-sm text-slate-400">Süre: ' + h + ' saat ' + m + ' dk</div>' +
-                    '<div class="text-sm text-amber-300 mt-1">Oturum: ' + currentShift.total_sessions + ' • Gelir: ₺' + Number(currentShift.total_revenue).toFixed(2) + '</div>' +
-                    '</div>';
-                actions.innerHTML = '<button onclick="clockOutShift()" class="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl font-medium transition">⏹️ Vardiyayı Kapat</button>';
-            } else {
-                area.innerHTML = '<div class="rounded-xl bg-slate-700/30 border border-slate-600 p-4 text-slate-400 text-sm">Henüz açık vardiyanız yok. Vardiya başlatın.</div>';
-                actions.innerHTML = '<button onclick="clockInShift()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">▶️ Vardiya Başlat</button>';
-            }
-        }
-
-        async function clockInShift() {
-            try { currentShift = await invoke('clock_in'); showToast('Vardiya başlatıldı!'); } catch (e) { showToast('Hata: ' + e, 'error'); }
-            await loadShiftStatus(); renderShiftModal();
-        }
-
-        async function clockOutShift() {
-            try { await invoke('clock_out'); showToast('Vardiya kapatıldı'); } catch (e) { showToast('Hata: ' + e, 'error'); }
-            await loadShiftStatus(); renderShiftModal();
         }
 
         // ─── Şifre ─────────────────────────────────────────
@@ -2333,7 +2236,6 @@
         async function loadPersonel() {
             if (!currentUser) return;
             renderUsers();
-            renderShifts();
             renderAuditLog();
         }
 
@@ -2427,36 +2329,7 @@
 
         async function removeUser(id) {
             if (!confirm('Kullanıcıyı silmek istediğinize emin misiniz?')) return;
-            try { await invoke('remove_user', { userId: id }); showToast('Kullanıcı silindi'); renderUsers(); renderShifts(); } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        async function renderShifts() {
-            try {
-                lastShifts = await invoke('get_shift_history');
-                var filter = document.getElementById('shift-user-filter');
-                var cur = filter.value;
-                var names = lastShifts.map(function (s) { return s.user_name; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-                filter.innerHTML = '<option value="">Tümü</option>' + names.map(function (n) { return '<option value="' + escHtml(n) + '">' + escHtml(n) + '</option>'; }).join('');
-                if (names.indexOf(cur) !== -1) filter.value = cur;
-                var list = filter.value ? lastShifts.filter(function (s) { return s.user_name === filter.value; }) : lastShifts;
-                var body = document.getElementById('shifts-body');
-                if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">Vardiya kaydı yok</td></tr>'; return; }
-                body.innerHTML = list.map(function (s) {
-                    var dur = s.end_time ? Math.floor((new Date(s.end_time) - new Date(s.start_time)) / 60000) : Math.floor((Date.now() - new Date(s.start_time)) / 60000);
-                    if (dur < 0) dur = 0;
-                    var h = Math.floor(dur / 60), m = dur % 60;
-                    var isOpen = !s.end_time;
-                    return '<tr class="border-t border-slate-700/40 hover:bg-slate-800/30 transition">' +
-                        '<td class="p-3">' + escHtml(s.user_name) + '</td>' +
-                        '<td class="p-3 text-slate-300 text-xs">' + new Date(s.start_time).toLocaleString('tr-TR') + '</td>' +
-                        '<td class="p-3 text-xs">' + (isOpen ? '<span class="inline-flex items-center gap-1 text-emerald-400"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full pulse-dot"></span>Açık</span>' : '<span class="text-slate-300">' + new Date(s.end_time).toLocaleString('tr-TR') + '</span>') + '</td>' +
-                        '<td class="p-3">' + h + ' sa ' + m + ' dk</td>' +
-                        '<td class="p-3">' + s.total_sessions + '</td>' +
-                        '<td class="p-3 font-medium">₺' + Number(s.total_revenue).toFixed(2) + '</td></tr>';
-                }).join('');
-            } catch (e) {
-                document.getElementById('shifts-body').innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-400">' + escHtml(String(e)) + '</td></tr>';
-            }
+            try { await invoke('remove_user', { userId: id }); showToast('Kullanıcı silindi'); renderUsers(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         function logActionBadge(action) {
@@ -2528,7 +2401,6 @@
                 '</div>' +
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-sm"><div class="flex justify-between"><span>İstasyon</span><span class="font-bold">' + escHtml(s.station_name) + '</span></div>' +
-                '<div class="flex justify-between"><span>Müşteri</span><span>' + escHtml(s.customer) + '</span></div>' +
                 '<div class="flex justify-between"><span>Süre</span><span>' + s.duration_minutes + ' dk</span></div>' +
                 '<div class="flex justify-between"><span>Başlangıç</span><span>' + start.toLocaleTimeString('tr-TR') + '</span></div>' +
                 '<div class="flex justify-between"><span>Bitiş</span><span>' + end.toLocaleTimeString('tr-TR') + '</span></div></div>' +
@@ -2664,7 +2536,7 @@
         document.addEventListener('DOMContentLoaded', () => { initAuth(); });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-shift', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt'].forEach(id => closeModal(id));
+                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt'].forEach(id => closeModal(id));
             }
             if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
         });

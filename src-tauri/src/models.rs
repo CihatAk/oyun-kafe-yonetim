@@ -88,7 +88,6 @@ pub struct PricingConfig {
     pub card_per_minute: f64,
     pub min_charge: f64,
     pub round_minutes: i64,
-    pub vip_per_minute: f64,
     pub extra_controller_per_hour: f64,
     pub max_session_minutes: i64,
     pub warning_before_minutes: i64,
@@ -101,7 +100,6 @@ impl Default for PricingConfig {
             card_per_minute: 5.00,
             min_charge: 0.0,
             round_minutes: 1,
-            vip_per_minute: 6.00,
             extra_controller_per_hour: 75.00,
             max_session_minutes: 0,
             warning_before_minutes: 5,
@@ -129,18 +127,6 @@ pub struct UserRecord {
     pub active: i64,
     pub permissions: String,
     pub created_at: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ShiftRecord {
-    pub id: String,
-    pub user_id: String,
-    pub user_name: String,
-    pub start_time: String,
-    pub end_time: Option<String>,
-    pub status: String,
-    pub total_sessions: i64,
-    pub total_revenue: f64,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

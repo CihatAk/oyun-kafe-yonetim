@@ -6,15 +6,11 @@ create table if not exists public.kafe_overview (
   active_count integer default 0,
   idle_count integer default 0,
   total_stations integer default 0,
-  vip_total integer default 0,
-  busy_vip integer default 0,
   today_revenue double precision default 0,
   today_drinks double precision default 0,
   today_sessions integer default 0,
   live_estimate double precision default 0,
   low_stock_threshold integer default 5,
-  campaigns_active integer default 0,
-  packages_active integer default 0,
   updated_at timestamptz default now()
 );
 
@@ -27,6 +23,7 @@ create table if not exists public.kafe_stations (
   customer text not null default '',
   start_time text,
   elapsed_min integer default 0,
+  extra_controllers integer default 0,
   updated_at timestamptz default now()
 );
 
@@ -41,6 +38,8 @@ create table if not exists public.kafe_sessions (
   fee double precision default 0,
   drink_total double precision default 0,
   total double precision default 0,
+  extra_controllers integer default 0,
+  extra_fee double precision default 0,
   updated_at timestamptz default now()
 );
 
@@ -68,6 +67,8 @@ create table if not exists public.kafe_history (
   total double precision default 0,
   payment_method text not null default '',
   drink_total double precision default 0,
+  extra_controllers integer default 0,
+  extra_fee double precision default 0,
   updated_at timestamptz default now()
 );
 
@@ -116,3 +117,22 @@ grant select on public.kafe_sessions  to anon;
 grant select on public.kafe_drinks    to anon;
 grant select on public.kafe_history   to anon;
 grant select on public.kafe_day_end   to anon;
+
+-- ════════════════════════════════════════════════════════════════════
+-- MİGRASYON: ZATEN KURULU SUPABASE PROJESİ İÇİN
+-- Aşağıdaki blok, daha önce şema oluşturulmuş projelerde eksik olan
+-- sütunları ekler. Supabase Dashboard > SQL Editor'a yapıştırıp "Run"
+-- çalıştırın. "Eşitleme hatası: kafe_stations: 400 Bad Request ... schema cache"
+-- hatası bu komutlar çalıştırıldıktan ~10 saniye sonra kaybolur.
+
+alter table public.kafe_stations add column if not exists extra_controllers integer default 0;
+alter table public.kafe_sessions  add column if not exists extra_controllers integer default 0;
+alter table public.kafe_sessions  add column if not exists extra_fee double precision default 0;
+alter table public.kafe_history   add column if not exists extra_controllers integer default 0;
+alter table public.kafe_history   add column if not exists extra_fee double precision default 0;
+
+-- VIP sisteminden kalma sütunlar artık kullanılmıyor (opsiyonel temizlik):
+alter table public.kafe_overview drop column if exists vip_total;
+alter table public.kafe_overview drop column if exists busy_vip;
+alter table public.kafe_overview drop column if exists campaigns_active;
+alter table public.kafe_overview drop column if exists packages_active;

@@ -85,11 +85,6 @@ pub fn migrate_db(conn: &Connection) {
             active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
             permissions TEXT NOT NULL DEFAULT '{}'
         );
-        CREATE TABLE IF NOT EXISTS shifts (
-            id TEXT PRIMARY KEY, user_id TEXT NOT NULL, user_name TEXT NOT NULL DEFAULT '',
-            start_time TEXT NOT NULL, end_time TEXT, status TEXT NOT NULL DEFAULT 'open',
-            total_sessions INTEGER NOT NULL DEFAULT 0, total_revenue REAL NOT NULL DEFAULT 0
-        );
         CREATE TABLE IF NOT EXISTS audit_log (
             id TEXT PRIMARY KEY, user_id TEXT NOT NULL DEFAULT '', user_name TEXT NOT NULL DEFAULT '',
             action TEXT NOT NULL, entity TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
@@ -108,7 +103,6 @@ pub fn migrate_db(conn: &Connection) {
         CREATE INDEX IF NOT EXISTS idx_hist_pay ON session_history(payment_method);
         CREATE INDEX IF NOT EXISTS idx_dorders_sess ON drink_orders(session_id);
         CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
-        CREATE INDEX IF NOT EXISTS idx_shifts_user ON shifts(user_id);
         CREATE INDEX IF NOT EXISTS idx_stockmov_drink ON stock_movements(drink_id);
         ",
     )
@@ -157,7 +151,7 @@ pub fn migrate_db(conn: &Connection) {
     migrate_versioned(conn);
 }
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 fn migrate_versioned(conn: &Connection) {
     let current: i64 = conn
@@ -184,6 +178,26 @@ fn migrate_versioned(conn: &Connection) {
                 let _ = conn.execute_batch(&format!("DROP TABLE {};", tbl));
             }
         }
+        let _ = conn.execute_batch("PRAGMA user_version = 2");
+    }
+    if current < 3 {
+        // Sürüm 3: VIP sistemi ve vardiya özelliği tamamen kaldırıldı.
+        // - VIP istasyonları 'standard' tipe dönüştürülür.
+        // - VIP tarifesi ayar kaydı silinir.
+        // - Vardiya tablosu (varsa) kaldırılır.
+        let _ = conn.execute_batch("UPDATE stations SET station_type = 'standard' WHERE station_type = 'vip';");
+        let _ = conn.execute_batch("DELETE FROM pricing_config WHERE key = 'vip_per_minute';");
+        let shifts_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'shifts'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if shifts_exists {
+            let _ = conn.execute_batch("DROP TABLE shifts;");
+        }
         let _ = conn.execute_batch(&format!("PRAGMA user_version = {}", SCHEMA_VERSION));
     }
 }
@@ -191,7 +205,7 @@ fn migrate_versioned(conn: &Connection) {
 pub fn seed_defaults(conn: &Connection) {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM stations", [], |r| r.get(0)).unwrap_or(0);
     if count == 0 {
-        for (id, name, stype) in [("pc-01","PC-01","standard"),("pc-02","PC-02","standard"),("pc-03","PC-03","standard"),("pc-04","PC-04","vip"),("pc-05","PC-05","vip"),("pc-06","PC-06","standard")] {
+        for (id, name, stype) in [("pc-01","PC-01","standard"),("pc-02","PC-02","standard"),("pc-03","PC-03","standard"),("pc-04","PC-04","standard"),("pc-05","PC-05","standard"),("pc-06","PC-06","standard")] {
             conn.execute("INSERT INTO stations (id, name, station_type, status) VALUES (?1, ?2, ?3, 'idle')", params![id, name, stype]).unwrap();
         }
     }
@@ -253,7 +267,6 @@ impl AppState {
             card_per_minute: g("card_per_minute").and_then(|v| v.parse().ok()).unwrap_or(5.00),
             min_charge: g("min_charge").and_then(|v| v.parse().ok()).unwrap_or(0.0),
             round_minutes: g("round_minutes").and_then(|v| v.parse().ok()).unwrap_or(1),
-            vip_per_minute: g("vip_per_minute").and_then(|v| v.parse().ok()).unwrap_or(6.00),
             extra_controller_per_hour: g("extra_controller_per_hour").and_then(|v| v.parse().ok()).unwrap_or(75.00),
             max_session_minutes: g("max_session_minutes").and_then(|v| v.parse().ok()).unwrap_or(0),
             warning_before_minutes: g("warning_before_minutes").and_then(|v| v.parse().ok()).unwrap_or(5),
@@ -261,8 +274,8 @@ impl AppState {
     }
 
     pub fn get_effective_rate(&self, station_type: &str, rate_type: &str, pricing: &PricingConfig) -> f64 {
-        if station_type == "vip" { pricing.vip_per_minute }
-        else if rate_type == "nakit" { pricing.cash_per_minute }
+        let _ = station_type;
+        if rate_type == "nakit" { pricing.cash_per_minute }
         else { pricing.card_per_minute }
     }
 }

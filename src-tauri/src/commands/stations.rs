@@ -26,20 +26,20 @@ pub fn get_stations(state: State<AppState>) -> Result<Vec<Station>, String> {
 }
 
 #[tauri::command]
-pub fn add_station(name: String, station_type: String, group_name: String, state: State<AppState>) -> Result<Station, String> {
+pub fn add_station(name: String, group_name: String, state: State<AppState>) -> Result<Station, String> {
     crate::commands::auth::require_admin(&state)?;
     let id = format!("pc-{}", &Uuid::new_v4().to_string()[..8]);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("INSERT INTO stations (id, name, station_type, status, group_name) VALUES (?1, ?2, ?3, 'idle', ?4)", params![id, name, station_type, group_name]).map_err(|e| format!("İstasyon eklenemedi: {}", e))?;
+    conn.execute("INSERT INTO stations (id, name, station_type, status, group_name) VALUES (?1, ?2, 'standard', 'idle', ?3)", params![id, name, group_name]).map_err(|e| format!("İstasyon eklenemedi: {}", e))?;
     log_audit_conn(&conn, &state, "add_station", "stations", &name);
-    Ok(Station { id, name, station_type, status: "idle".into(), group_name, total_sessions: 0, total_revenue: 0.0 })
+    Ok(Station { id, name, station_type: "standard".into(), status: "idle".into(), group_name, total_sessions: 0, total_revenue: 0.0 })
 }
 
 #[tauri::command]
-pub fn update_station(station_id: String, name: String, station_type: String, group_name: String, state: State<AppState>) -> Result<(), String> {
+pub fn update_station(station_id: String, name: String, group_name: String, state: State<AppState>) -> Result<(), String> {
     crate::commands::auth::require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("UPDATE stations SET name = ?1, station_type = ?2, group_name = ?3 WHERE id = ?4", params![name, station_type, group_name, station_id]).map_err(|e| e.to_string())?;
+    conn.execute("UPDATE stations SET name = ?1, group_name = ?2 WHERE id = ?3", params![name, group_name, station_id]).map_err(|e| e.to_string())?;
     let old: Option<String> = conn.query_row("SELECT station_name FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).ok();
     if let Some(o) = old { if o != name { conn.execute("UPDATE active_sessions SET station_name = ?1 WHERE station_id = ?2", params![name, station_id]).ok(); } }
     log_audit_conn(&conn, &state, "update_station", "stations", &name);

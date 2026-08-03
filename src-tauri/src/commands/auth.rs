@@ -186,60 +186,6 @@ pub fn change_password(old_password: String, new_password: String, state: State<
 }
 
 #[tauri::command]
-pub fn clock_in(state: State<AppState>) -> Result<ShiftRecord, String> {
-    let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let open: i64 = conn.query_row("SELECT COUNT(*) FROM shifts WHERE user_id = ?1 AND status = 'open'", params![user.id], |r| r.get(0)).unwrap_or(0);
-    if open > 0 { return Err("Zaten açık vardiyanız var!".into()); }
-    let id = Uuid::new_v4().to_string();
-    let uname = if user.full_name.is_empty() { user.username.clone() } else { user.full_name.clone() };
-    conn.execute("INSERT INTO shifts (id, user_id, user_name, start_time, status) VALUES (?1,?2,?3,?4,'open')", params![id, user.id, uname, now()]).map_err(|e| e.to_string())?;
-    let record = conn.query_row("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts WHERE id = ?1", params![id],
-        |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).map_err(|e| e.to_string())?;
-    log_audit_conn(&conn, &state, "clock_in", "shifts", "Vardiya başlatıldı");
-    Ok(record)
-}
-
-#[tauri::command]
-pub fn clock_out(state: State<AppState>) -> Result<ShiftRecord, String> {
-    let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts WHERE user_id = ?1 AND status = 'open' ORDER BY start_time DESC LIMIT 1").map_err(|e| e.to_string())?;
-    let shift = stmt.query_row(params![user.id], |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).map_err(|_| "Açık vardiya bulunamadı!")?;
-    conn.execute("UPDATE shifts SET end_time = ?1, status = 'closed' WHERE id = ?2", params![now(), shift.id]).map_err(|e| e.to_string())?;
-    let updated = conn.query_row("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts WHERE id = ?1", params![shift.id],
-        |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).map_err(|e| e.to_string())?;
-    log_audit_conn(&conn, &state, "clock_out", "shifts", "Vardiya kapatıldı");
-    Ok(updated)
-}
-
-#[tauri::command]
-pub fn get_active_shift(state: State<AppState>) -> Result<Option<ShiftRecord>, String> {
-    let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts WHERE user_id = ?1 AND status = 'open' ORDER BY start_time DESC LIMIT 1").map_err(|e| e.to_string())?;
-    let result = stmt.query_row(params![user.id], |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).ok();
-    Ok(result)
-}
-
-#[tauri::command]
-pub fn get_shift_history(state: State<AppState>) -> Result<Vec<ShiftRecord>, String> {
-    let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = if user.role == "admin" {
-        conn.prepare("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts ORDER BY start_time DESC LIMIT 200").map_err(|e| e.to_string())?
-    } else {
-        conn.prepare("SELECT id, user_id, user_name, start_time, end_time, status, total_sessions, total_revenue FROM shifts WHERE user_id = ?1 ORDER BY start_time DESC LIMIT 100").map_err(|e| e.to_string())?
-    };
-    let shifts = if user.role == "admin" {
-        stmt.query_map([], |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect()
-    } else {
-        stmt.query_map(params![user.id], |r| Ok(ShiftRecord { id: r.get(0)?, user_id: r.get(1)?, user_name: r.get(2)?, start_time: r.get(3)?, end_time: r.get(4)?, status: r.get(5)?, total_sessions: r.get(6)?, total_revenue: r.get(7)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect()
-    };
-    Ok(shifts)
-}
-
-#[tauri::command]
 pub fn reset_user_password(user_id: String, new_password: String, state: State<AppState>) -> Result<(), String> {
     require_admin(&state)?;
     if new_password.len() < 4 { return Err("Yeni şifre en az 4 karakter olmalı!".into()); }

@@ -8,13 +8,16 @@ use crate::models::*;
 use crate::commands::auth::log_audit_conn;
 
 #[tauri::command]
-pub fn get_pricing(state: State<AppState>) -> PricingConfig { state.load_pricing() }
+pub fn get_pricing(state: State<AppState>) -> Result<PricingConfig, String> {
+    crate::commands::auth::require_admin(&state)?;
+    Ok(state.load_pricing())
+}
 
 #[tauri::command]
 pub fn set_pricing(config: PricingConfig, state: State<AppState>) -> Result<(), String> {
     crate::commands::auth::require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    for (k, v) in [("cash_per_minute",config.cash_per_minute),("card_per_minute",config.card_per_minute),("min_charge",config.min_charge),("vip_per_minute",config.vip_per_minute),("extra_controller_per_hour",config.extra_controller_per_hour)] {
+    for (k, v) in [("cash_per_minute",config.cash_per_minute),("card_per_minute",config.card_per_minute),("min_charge",config.min_charge),("extra_controller_per_hour",config.extra_controller_per_hour)] {
         conn.execute("INSERT OR REPLACE INTO pricing_config (key, value) VALUES (?1, ?2)", params![k, v.to_string()]).map_err(|e| e.to_string())?;
     }
     for (k, v) in [("round_minutes",config.round_minutes.max(1)),("max_session_minutes",config.max_session_minutes),("warning_before_minutes",config.warning_before_minutes)] {
