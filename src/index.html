@@ -250,6 +250,19 @@
                 <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
                     <span id="sync-dot" class="inline-block w-2 h-2 rounded-full bg-slate-500"></span>
                     <span id="sync-text">Supabase eşitlemesi bekleniyor...</span>
+                    <button id="sb-edit-btn" onclick="toggleSbSetup()" class="ml-auto hidden px-2 py-0.5 rounded bg-slate-700/70 hover:bg-slate-600 text-slate-300 transition">⚙️ Supabase</button>
+                </div>
+                <div id="sb-setup" class="hidden mt-3 bg-slate-900/60 rounded-xl p-3 border border-amber-500/40">
+                    <div class="text-amber-300 text-sm font-semibold mb-1">⚠️ Supabase bağlantısı gerekli</div>
+                    <p class="text-slate-500 text-xs mb-2 leading-relaxed">İnternet paneline veri göndermek için Supabase bilgilerini girin. Bu bilgileri geliştiriciden almalısınız.</p>
+                    <input id="sb-url" placeholder="Supabase URL (https://....supabase.co)" class="w-full mb-2 px-3 py-2 bg-slate-800 rounded-lg text-sm text-slate-200 border border-slate-700 focus:border-cyan-500 outline-none font-mono">
+                    <input id="sb-anon" placeholder="Anon key (anon public)" class="w-full mb-2 px-3 py-2 bg-slate-800 rounded-lg text-sm text-slate-200 border border-slate-700 focus:border-cyan-500 outline-none font-mono">
+                    <input id="sb-service" type="password" placeholder="Service key (service_role — gizli tutun)" class="w-full mb-2 px-3 py-2 bg-slate-800 rounded-lg text-sm text-slate-200 border border-slate-700 focus:border-cyan-500 outline-none font-mono">
+                    <input id="sb-panel" placeholder="Panel adresi (opsiyonel, örn. https://....vercel.app)" class="w-full mb-2 px-3 py-2 bg-slate-800 rounded-lg text-sm text-slate-200 border border-slate-700 focus:border-cyan-500 outline-none font-mono">
+                    <div class="flex items-center gap-2">
+                        <button onclick="saveSupabaseConfig()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition">Kaydet ve Bağlan</button>
+                        <span id="sb-setup-status" class="text-xs"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1288,6 +1301,56 @@
                 document.getElementById('web-note').textContent = 'Web sunucusu başlatılamadı: ' + e;
             }
             refreshSyncStatus();
+            checkSupabaseConfig();
+        }
+
+        async function checkSupabaseConfig() {
+            try {
+                const info = await invoke('get_supabase_config_info');
+                const setup = document.getElementById('sb-setup');
+                const editBtn = document.getElementById('sb-edit-btn');
+                if (!info.configured) {
+                    setup.classList.remove('hidden');
+                    editBtn.classList.add('hidden');
+                } else {
+                    setup.classList.add('hidden');
+                    editBtn.classList.remove('hidden');
+                }
+            } catch (e) { /* yoksay */ }
+        }
+
+        async function toggleSbSetup() {
+            const setup = document.getElementById('sb-setup');
+            setup.classList.toggle('hidden');
+            if (!setup.classList.contains('hidden')) {
+                try {
+                    const info = await invoke('get_supabase_config_info');
+                    if (info.url) document.getElementById('sb-url').value = info.url;
+                    if (info.panelUrl) document.getElementById('sb-panel').value = info.panelUrl;
+                } catch (e) { /* yoksay */ }
+            }
+        }
+
+        async function saveSupabaseConfig() {
+            const st = document.getElementById('sb-setup-status');
+            st.textContent = 'Kaydediliyor...';
+            st.className = 'text-xs text-slate-400';
+            try {
+                await invoke('save_supabase_config', {
+                    url: document.getElementById('sb-url').value,
+                    anonKey: document.getElementById('sb-anon').value,
+                    serviceKey: document.getElementById('sb-service').value,
+                    panelUrl: document.getElementById('sb-panel').value || null
+                });
+                st.textContent = '✅ Kaydedildi. Eşitleme ~10 sn içinde başlar.';
+                st.className = 'text-xs text-emerald-300';
+                document.getElementById('sb-service').value = '';
+                refreshSyncStatus();
+                loadDashboard();
+            } catch (e) {
+                st.textContent = '❌ ' + e;
+                st.className = 'text-xs text-red-300';
+            }
         }
 
         async function refreshSyncStatus() {

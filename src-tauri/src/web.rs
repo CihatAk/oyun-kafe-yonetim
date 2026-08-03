@@ -271,6 +271,68 @@ pub fn get_sync_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+pub fn get_supabase_config_info() -> Result<serde_json::Value, String> {
+    let sb = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+    let configured = sb
+        .as_ref()
+        .map(|v| {
+            !v["url"].as_str().unwrap_or("").is_empty()
+                && !v["anon_key"].as_str().unwrap_or("").is_empty()
+                && !v["service_key"].as_str().unwrap_or("").is_empty()
+        })
+        .unwrap_or(false);
+    Ok(json!({
+        "configured": configured,
+        "url": sb.as_ref().and_then(|v| v["url"].as_str()).unwrap_or(""),
+        "panelUrl": sb.as_ref().and_then(|v| v["panel_url"].as_str()).unwrap_or(""),
+    }))
+}
+
+#[tauri::command]
+pub fn save_supabase_config(
+    url: String,
+    anon_key: String,
+    service_key: String,
+    panel_url: Option<String>,
+) -> Result<(), String> {
+    let url = url.trim().trim_end_matches('/').to_string();
+    let anon_key = anon_key.trim().to_string();
+    let service_key = service_key.trim().to_string();
+    let panel_url = panel_url.unwrap_or_default().trim().to_string();
+    if url.is_empty() || anon_key.is_empty() || service_key.is_empty() {
+        return Err("Supabase URL, anon key ve service key zorunludur.".into());
+    }
+    if !url.starts_with("https://") {
+        return Err("Supabase URL 'https://' ile başlamalıdır.".into());
+    }
+    let mut obj = json!({
+        "url": url,
+        "anon_key": anon_key,
+        "service_key": service_key,
+    });
+    let existing_panel = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|v| v["panel_url"].as_str().map(String::from))
+        .filter(|p| !p.is_empty());
+    let panel = if !panel_url.is_empty() {
+        panel_url
+    } else {
+        existing_panel.unwrap_or_else(|| "https://panel-deploy-six.vercel.app".to_string())
+    };
+    obj["panel_url"] = json!(panel);
+    let dir = crate::db::get_data_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let tmp = dir.join("supabase.json.tmp");
+    std::fs::write(&tmp, serde_json::to_string_pretty(&obj).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("supabase.json yazılamadı: {}", e))?;
+    std::fs::rename(&tmp, dir.join("supabase.json")).map_err(|e| format!("supabase.json kaydedilemedi: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_web_info() -> Result<serde_json::Value, String> {
     let port = port_from_env();
     let ip = local_ip_address::local_ip().ok();

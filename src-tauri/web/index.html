@@ -275,14 +275,20 @@
   function fmtTime(s){ if(!s) return '-'; var d = new Date(s); return isNaN(d) ? '-' : d.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}); }
 
   function sbGet(path){
-    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    var url = SUPABASE_URL + '/rest/v1/' + path;
+    console.log('Fetching:', url);
+    return fetch(url, {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
       }
     }).then(function(r){
+      console.log('Response:', r.status, url);
       if(!r.ok){ throw new Error('Sunucu hatası ' + r.status); }
       return r.json();
+    }).then(function(data){
+      console.log('Data received for', path, ':', data);
+      return data;
     });
   }
 
@@ -305,6 +311,7 @@
   }
 
   function bootError(msg){
+    console.error('Boot error:', msg);
     $('boot-err').textContent = msg;
     $('boot-retry').classList.remove('hidden');
   }
@@ -312,14 +319,37 @@
   $('boot-retry').addEventListener('click', function(){ $('boot-retry').classList.add('hidden'); $('boot-err').textContent = ''; boot(); });
 
   function boot(){
+    console.log('Supabase URL:', SUPABASE_URL);
+    console.log('Supabase Key:', SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+
     if(SUPABASE_URL.indexOf('__SUPABASE') === 0){
       bootError('Panel yapılandırması eksik. Lütfen yükleme betiğini tekrar çalıştırın.');
       return;
     }
-    sbGet('kafe_overview?id=eq.1&select=*').then(function(rows){
-      if(!rows || !rows.length){ bootError('Veri bulunamadı. Masaüstü programın çalıştığından emin olun.'); return; }
+
+    // Önce basit bir bağlantı testi
+    fetch(SUPABASE_URL + '/rest/v1/kafe_overview?id=eq.1&select=*', {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      }
+    }).then(function(response){
+      console.log('Response status:', response.status);
+      if(!response.ok){
+        throw new Error('HTTP ' + response.status);
+      }
+      return response.json();
+    }).then(function(rows){
+      console.log('Data received:', rows);
+      if(!rows || !rows.length){
+        bootError('Veri bulunamadı. Masaüstü programın çalıştığından emin olun.');
+        return;
+      }
       showApp();
-    }).catch(function(e){ bootError('Bağlantı kurulamadı: ' + (e.message||e)); });
+    }).catch(function(e){
+      console.error('Boot error:', e);
+      bootError('Bağlantı kurulamadı: ' + (e.message||e));
+    });
   }
 
   function switchTab(t){
@@ -400,8 +430,17 @@
       $('last-upd').textContent = d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       lastSyncTime = now;
       forceRefresh = false;
-      renderAll();
-    }).catch(function(){ setOff(); });
+      console.log('About to render all. Cache:', cache);
+      try {
+        renderAll();
+        console.log('Render all completed');
+      } catch(e) {
+        console.error('Render error:', e);
+      }
+    }).catch(function(e){
+      console.error('Promise.all error:', e);
+      setOff();
+    });
   }
 
   function todayStr(){
@@ -429,6 +468,7 @@
   function setOff(){ $('status-dot').classList.add('off'); }
 
   function renderAll(){
+    console.log('renderAll called. currentTab:', currentTab);
     if(cache.overview) renderGenel(cache.overview);
     renderMasalar(cache.stations);
     renderOturumlar(cache.sessions);
@@ -448,13 +488,28 @@
   }
 
   function renderGenel(d){
+    console.log('renderGenel called with data:', d);
     $('status-dot').classList.remove('off');
-    $('ov-active').textContent = d.active_count;
-    $('ov-busy').textContent = d.active_count + ' / ' + d.total_stations;
-    $('ov-rev').textContent = fmt(d.today_revenue);
+    var ovActive = $('ov-active');
+    var ovBusy = $('ov-busy');
+    var ovRev = $('ov-rev');
+    var ovLow = $('ov-low');
+    var ovLive = $('ov-live');
+
+    console.log('DOM elements found:', {
+      ovActive: !!ovActive,
+      ovBusy: !!ovBusy,
+      ovRev: !!ovRev,
+      ovLow: !!ovLow,
+      ovLive: !!ovLive
+    });
+
+    if(ovActive) ovActive.textContent = d.active_count;
+    if(ovBusy) ovBusy.textContent = d.active_count + ' / ' + d.total_stations;
+    if(ovRev) ovRev.textContent = fmt(d.today_revenue);
     var low = lowStockDrinks();
-    $('ov-low').textContent = low.length;
-    $('ov-live').textContent = fmt(d.live_estimate);
+    if(ovLow) ovLow.textContent = low.length;
+    if(ovLive) ovLive.textContent = fmt(d.live_estimate);
 
     var lowB = $('ov-low-banner');
     if(low.length){ lowB.classList.remove('hidden'); $('ov-low-list').innerHTML = low.map(function(x){ return esc(x.emoji||'🥤') + ' ' + esc(x.name) + ' — kalan: <b>' + x.stock + '</b>'; }).join('<br>'); }

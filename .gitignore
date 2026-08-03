@@ -34,5 +34,6 @@ panel-deploy/
 # Tauri signer keys (güvenlik)
 secretkey.txt
 publickey.txt
+bilgi.txt
 *.key
 *.pub
