@@ -19,10 +19,10 @@ $srcTauri = Join-Path $repo "src-tauri"
 Write-Host "Version: $Version"
 Write-Host "Repo: $repo"
 
-# 1. Cargo.toml'da version güncelle
+# 1. Cargo.toml'da version güncelle (yalnızca [package] blokundaki satır)
 $cargoToml = Join-Path $srcTauri "Cargo.toml"
 $cargoContent = Get-Content $cargoToml -Raw
-$cargoContent = $cargoContent -replace 'version = ".*"', "version = `"$Version`""
+$cargoContent = $cargoContent -replace '(?m)^(name = "oyun-kafe-yonetim"\r?\n)version = "[^"]*"', ('${1}version = "' + $Version + '"')
 Set-Content -Path $cargoToml -Value $cargoContent -NoNewline
 Write-Host "Cargo.toml version güncellendi"
 

@@ -31,6 +31,9 @@ supabase/functions/panel/index.ts
 panel-deploy/
 .vercel/
 
+# Release paketleri
+release-*/
+
 # Tauri signer keys (güvenlik)
 secretkey.txt
 publickey.txt
