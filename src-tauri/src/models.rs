@@ -22,6 +22,7 @@ pub struct ActiveSession {
     pub tags: String,
     pub paused_at: Option<String>,
     pub total_paused_seconds: i64,
+    pub extra_controllers: i64,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -39,6 +40,8 @@ pub struct SessionRecord {
     pub discount: f64,
     pub notes: String,
     pub tags: String,
+    pub extra_controllers: i64,
+    pub extra_fee: f64,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -86,6 +89,7 @@ pub struct PricingConfig {
     pub min_charge: f64,
     pub round_minutes: i64,
     pub vip_per_minute: f64,
+    pub extra_controller_per_hour: f64,
     pub max_session_minutes: i64,
     pub warning_before_minutes: i64,
 }
@@ -98,6 +102,7 @@ impl Default for PricingConfig {
             min_charge: 0.0,
             round_minutes: 1,
             vip_per_minute: 6.00,
+            extra_controller_per_hour: 75.00,
             max_session_minutes: 0,
             warning_before_minutes: 5,
         }

@@ -116,7 +116,7 @@ fn run_once() -> Result<(), String> {
             json!({
                 "id": s["id"], "name": s["name"], "type": s["type"], "group_name": s["group"],
                 "status": s["status"], "customer": s["customer"], "start_time": s["start_time"],
-                "elapsed_min": s["elapsed_min"], "updated_at": now,
+                "elapsed_min": s["elapsed_min"], "extra_controllers": s["extra_controllers"], "updated_at": now,
             })
         })
         .collect();
@@ -132,6 +132,7 @@ fn run_once() -> Result<(), String> {
                 "station_id": s["station_id"], "station_name": s["station_name"],
                 "customer": s["customer"], "rate_type": s["rate_type"], "start_time": s["start_time"],
                 "is_paused": s["is_paused"], "minutes": s["minutes"], "fee": s["fee"],
+                "extra_controllers": s["extra_controllers"], "extra_fee": s["extra_fee"],
                 "drink_total": s["drink_total"], "total": s["total"], "updated_at": now,
             })
         })
@@ -168,6 +169,7 @@ fn run_once() -> Result<(), String> {
                 "start_time": h["start_time"], "end_time": h["end_time"],
                 "duration_minutes": h["duration_minutes"], "total": h["total"],
                 "payment_method": h["payment_method"], "drink_total": h["drink_total"],
+                "extra_controllers": h["extra_controllers"], "extra_fee": h["extra_fee"],
                 "updated_at": now,
             })
         })

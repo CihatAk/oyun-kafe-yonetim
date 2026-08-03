@@ -12,11 +12,13 @@ fn map_active(row: &rusqlite::Row) -> rusqlite::Result<ActiveSession> {
         station_id: row.get(0)?, station_name: row.get(1)?, customer: row.get(2)?,
         start_time: row.get(3)?, rate_type: row.get(4)?, notes: row.get(5)?,
         tags: row.get(6)?, paused_at: row.get(7)?, total_paused_seconds: row.get(8)?,
+        extra_controllers: row.get(9)?,
     })
 }
 
 #[tauri::command]
-pub fn start_session(station_id: String, customer: String, rate_type: String, notes: String, tags: String, state: State<AppState>) -> Result<ActiveSession, String> {
+pub fn start_session(station_id: String, customer: String, rate_type: String, notes: String, tags: String, extra_controllers: Option<i64>, state: State<AppState>) -> Result<ActiveSession, String> {
+    let extra = extra_controllers.unwrap_or(0).max(0);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let (status, st_name): (String, String) = conn.query_row("SELECT status, name FROM stations WHERE id = ?1", params![station_id], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| "İstasyon bulunamadı")?;
     if status == "active" { return Err("İstasyon zaten aktif".into()); }
@@ -24,11 +26,11 @@ pub fn start_session(station_id: String, customer: String, rate_type: String, no
     let session = ActiveSession {
         station_id: station_id.clone(), station_name: st_name, customer,
         start_time: Local::now().to_rfc3339(), rate_type, notes, tags,
-        paused_at: None, total_paused_seconds: 0,
+        paused_at: None, total_paused_seconds: 0, extra_controllers: extra,
     };
-    conn.execute("INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type, notes, tags, paused_at, total_paused_seconds) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, 0)",
-        params![session.station_id, session.station_name, session.customer, session.start_time, session.rate_type, session.notes, session.tags]).map_err(|e| e.to_string())?;
-    log_audit_conn(&conn, &state, "start_session", "sessions", format!("{} - {}", session.station_name, session.customer).as_str());
+    conn.execute("INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type, notes, tags, paused_at, total_paused_seconds, extra_controllers) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, 0, ?8)",
+        params![session.station_id, session.station_name, session.customer, session.start_time, session.rate_type, session.notes, session.tags, extra]).map_err(|e| e.to_string())?;
+    log_audit_conn(&conn, &state, "start_session", "sessions", format!("{} - {} (ekstra kol: {})", session.station_name, session.customer, extra).as_str());
     Ok(session)
 }
 
@@ -70,7 +72,7 @@ pub fn update_session_notes(station_id: String, notes: String, tags: String, sta
 #[tauri::command]
 pub fn get_active_sessions(state: State<AppState>) -> Result<Vec<ActiveSession>, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0) FROM active_sessions").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions").map_err(|e| e.to_string())?;
     let sessions: Vec<ActiveSession> = stmt.query_map([], map_active).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(sessions)
 }
@@ -81,8 +83,17 @@ pub fn update_session_start_time(station_id: String, new_start_time: String, sta
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET start_time = ?1 WHERE station_id = ?2", params![new_start_time, station_id]).map_err(|_| "Oturum bulunamadı")?;
     log_audit_conn(&conn, &state, "update_session_start_time", "sessions", &station_id);
-    conn.query_row("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0) FROM active_sessions WHERE station_id = ?1",
+    conn.query_row("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1",
         params![station_id], map_active).map_err(|_| "Oturum bulunamadı".into())
+}
+
+#[tauri::command]
+pub fn update_session_extra_controllers(station_id: String, extra_controllers: i64, state: State<AppState>) -> Result<(), String> {
+    let extra = extra_controllers.max(0);
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    conn.execute("UPDATE active_sessions SET extra_controllers = ?1 WHERE station_id = ?2", params![extra, station_id]).map_err(|_| "Oturum bulunamadı")?;
+    log_audit_conn(&conn, &state, "update_session_extra_controllers", "sessions", format!("{} ekstra kol: {}", station_id, extra).as_str());
+    Ok(())
 }
 
 #[tauri::command]
@@ -90,11 +101,11 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
 
     let row = conn.query_row(
-        "SELECT station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0) FROM active_sessions WHERE station_id = ?1",
+        "SELECT station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1",
         params![station_id],
-        |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?, r.get::<_,String>(2)?, r.get::<_,String>(3)?, r.get::<_,String>(4)?, r.get::<_,String>(5)?, r.get::<_,Option<String>>(6)?, r.get::<_,i64>(7)?)),
+        |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?, r.get::<_,String>(2)?, r.get::<_,String>(3)?, r.get::<_,String>(4)?, r.get::<_,String>(5)?, r.get::<_,Option<String>>(6)?, r.get::<_,i64>(7)?, r.get::<_,i64>(8)?)),
     ).map_err(|_| "Aktif oturum bulunamadı")?;
-    let (station_name, customer, start_str, rate_type, notes, tags, paused_at, total_paused) = row;
+    let (station_name, customer, start_str, rate_type, notes, tags, paused_at, total_paused, extra_controllers) = row;
 
     let st_type: String = conn.query_row("SELECT station_type FROM stations WHERE name = ?1", params![station_name], |r| r.get(0)).unwrap_or_else(|_| "standard".into());
     let start: DateTime<Local> = DateTime::parse_from_rfc3339(&start_str).map_err(|e| e.to_string())?.with_timezone(&Local);
@@ -121,7 +132,9 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
 
     let drink_total: f64 = conn.query_row("SELECT COALESCE(SUM(total), 0) FROM drink_orders WHERE session_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
     let base_fee = (rounded_mins as f64 * per_min).max(pricing.min_charge);
-    let mut session_fee = base_fee;
+    let extra_per_min = pricing.extra_controller_per_hour / 60.0;
+    let extra_fee = extra_controllers.max(0) as f64 * extra_per_min * (rounded_mins as f64);
+    let mut session_fee = base_fee + extra_fee;
     let mut discount = 0.0;
     let mut fee_note = String::new();
 
@@ -129,15 +142,15 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
         if !pkg_id.trim().is_empty() {
             let pkg = conn.query_row("SELECT name, price, active FROM packages WHERE id = ?1", params![pkg_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,f64>(1)?, r.get::<_,i64>(2)?))).map_err(|_| "Paket bulunamadı")?;
             if pkg.2 != 1 { return Err("Paket pasif!".into()); }
-            session_fee = pkg.1;
-            discount = (base_fee - session_fee).max(0.0);
+            session_fee = pkg.1 + extra_fee;
+            discount = (base_fee - pkg.1).max(0.0);
             fee_note = format!("Paket: {}", pkg.0);
         }
     } else {
         let cd = crate::commands::campaigns::campaign_discount_for(&conn, &end);
         if cd > 0.0 {
-            discount = base_fee * cd / 100.0;
-            session_fee = base_fee - discount;
+            discount = (base_fee + extra_fee) * cd / 100.0;
+            session_fee = base_fee + extra_fee - discount;
             fee_note = format!("Kampanya indirimi (%{:.0})", cd);
         }
     }
@@ -190,8 +203,8 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
             else { notes.clone() };
         let hist_id_inner = Uuid::new_v4().to_string();
         hist_id = hist_id_inner.clone();
-        conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, notes, tags) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
-            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, hist_notes, tags]).map_err(|e| e.to_string())?;
+        conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, notes, tags, extra_controllers, extra_fee) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE drink_orders SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE partial_payments SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         if let Some(u) = state.current_user.lock().ok().and_then(|g| g.clone()) {
@@ -207,5 +220,5 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     }
     conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
 
-    Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type, drink_total, discount, notes, tags })
+    Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type, drink_total, discount, notes, tags, extra_controllers, extra_fee })
 }

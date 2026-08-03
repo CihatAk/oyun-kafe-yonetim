@@ -33,9 +33,9 @@ pub fn get_dashboard_stats(state: State<AppState>) -> Result<serde_json::Value, 
 #[tauri::command]
 pub fn calculate_live_fee(station_id: String, payment_method: String, state: State<AppState>) -> Result<serde_json::Value, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let (start_str, paused_at, total_paused, st_type): (String, Option<String>, i64, String) = conn.query_row(
-        "SELECT a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(s.station_type,'standard') FROM active_sessions a LEFT JOIN stations s ON a.station_id=s.id WHERE a.station_id=?1",
-        params![station_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    let (start_str, paused_at, total_paused, st_type, extra_controllers): (String, Option<String>, i64, String, i64) = conn.query_row(
+        "SELECT a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(s.station_type,'standard'), COALESCE(a.extra_controllers,0) FROM active_sessions a LEFT JOIN stations s ON a.station_id=s.id WHERE a.station_id=?1",
+        params![station_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
     ).map_err(|_| "Oturum bulunamadı")?;
     let start: chrono::DateTime<Local> = chrono::DateTime::parse_from_rfc3339(&start_str).map_err(|e| e.to_string())?.with_timezone(&Local);
     let now = Local::now();
@@ -58,12 +58,14 @@ pub fn calculate_live_fee(station_id: String, payment_method: String, state: Sta
     let chunks = ((dur_mins as f64) / (round_mins as f64)).ceil() as i64;
     let rounded = chunks * round_mins;
     let fee = (rounded as f64 * per_min).max(pricing.min_charge);
+    let extra_fee = extra_controllers.max(0) as f64 * (pricing.extra_controller_per_hour / 60.0) * rounded as f64;
     let dt: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE session_id=?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
     let max_secs = pricing.max_session_minutes * 60;
     let warn_secs = pricing.warning_before_minutes * 60;
     Ok(serde_json::json!({
         "minutes": dur_mins, "seconds": dur_secs, "current_fee": fee, "per_minute": per_min,
-        "drink_total": dt, "total_with_drinks": fee + dt, "is_paused": is_paused,
+        "extra_controllers": extra_controllers, "extra_fee": extra_fee, "extra_controller_per_hour": pricing.extra_controller_per_hour,
+        "drink_total": dt, "total_with_drinks": fee + extra_fee + dt, "is_paused": is_paused,
         "paused_seconds": paused_remaining, "station_type": st_type,
         "show_warning": pricing.max_session_minutes > 0 && total_secs >= (max_secs - warn_secs) && total_secs < max_secs,
         "auto_end": pricing.max_session_minutes > 0 && total_secs >= max_secs,

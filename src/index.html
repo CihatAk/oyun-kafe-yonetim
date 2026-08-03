@@ -221,7 +221,7 @@
                             </tr>
                         </thead>
                         <tbody id="active-sessions-body">
-                            <tr><td colspan="9" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>
+                            <tr><td colspan="10" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -406,6 +406,10 @@
                             <label class="block text-slate-300 text-sm font-medium mb-2">Uyarı Süresi (dk, bitişten önce)</label>
                             <input type="number" id="price-warning" step="1" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="5">
                         </div>
+                        <div>
+                            <label class="block text-slate-300 text-sm font-medium mb-2">🎮 Ekstra Kumanda (₺/saat)</label>
+                            <input type="number" id="price-extra-controller" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition" placeholder="75">
+                        </div>
                         <button onclick="savePricing()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-semibold transition mt-2">💾 Ayarları Kaydet</button>
                     </div>
                 </div>
@@ -446,7 +450,7 @@
                         <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
                             <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">İstasyon</th><th class="p-3 font-medium">Müşteri</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">İçecek</th><th class="p-3 font-medium">Toplam</th><th class="p-3 font-medium">Ödeme</th><th class="p-3 font-medium">Fiş</th>
                         </tr></thead>
-                        <tbody id="history-body"><tr><td colspan="9" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
+                        <tbody id="history-body"><tr><td colspan="10" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -802,6 +806,14 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Ekstra Kumanda (2 standart + ekstra)</label>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="adjustExtraControllers(-1)" class="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-xl font-bold transition">−</button>
+                        <input type="number" id="start-extra-controllers" value="0" min="0" max="99" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white text-center focus:outline-none focus:border-cyan-500 transition">
+                        <button type="button" onclick="adjustExtraControllers(1)" class="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-xl font-bold transition">+</button>
+                    </div>
+                </div>
+                <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Notlar</label>
                     <input type="text" id="start-notes" placeholder="İsteğe bağlı not" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                 </div>
@@ -823,6 +835,7 @@
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Müşteri:</span><span id="end-customer-name" class="font-semibold text-white"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Süre:</span><span id="end-duration" class="font-semibold text-cyan-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Oturum Ücreti:</span><span id="end-session-fee" class="font-semibold text-emerald-400"></span></div>
+                    <div class="flex justify-between text-sm"><span class="text-slate-400">Ekstra Kumanda:</span><span id="end-extra-fee" class="font-semibold text-orange-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">İçecek Toplamı:</span><span id="end-drink-total" class="font-semibold text-amber-400"></span></div>
                     <div class="flex justify-between text-lg pt-2 border-t border-slate-600/50"><span class="text-slate-300 font-medium">Genel Toplam:</span><span id="end-total" class="font-bold text-emerald-400 text-2xl"></span></div>
                 </div>
@@ -1381,7 +1394,7 @@
                 const sessions = await invoke('get_active_sessions');
                 const tbody = document.getElementById('active-sessions-body');
                 if (sessions.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>';
                     renderActiveSessionsBusy = false;
                     return;
                 }
@@ -1397,7 +1410,7 @@
                         console.error('Oturum verisi alınamadı:', s.station_id, pe);
                         const errRow = document.createElement('tr');
                         errRow.className = 'border-b border-red-700/30 bg-red-600/10';
-                        errRow.innerHTML = `<td colspan="9" class="p-3 text-red-300 text-sm">${escHtml(s.station_name)} — ${escHtml(s.customer)} oturumu için veri alınamadı: ${escHtml(String(pe))}</td>`;
+                        errRow.innerHTML = `<td colspan="10" class="p-3 text-red-300 text-sm">${escHtml(s.station_name)} — ${escHtml(s.customer)} oturumu için veri alınamadı: ${escHtml(String(pe))}</td>`;
                         tbody.appendChild(errRow);
                         continue;
                     }
@@ -1428,6 +1441,13 @@
                         <td class="p-3 text-slate-400 font-mono text-xs">${start.toLocaleTimeString('tr-TR')}</td>
                         <td class="p-3 font-mono text-sm" data-live="${s.station_id}">${fee.minutes}dk ${fee.seconds}s</td>
                         <td class="p-3 font-bold text-emerald-400" data-session-fee="${s.station_id}">₺${fee.current_fee.toFixed(2)}</td>
+                        <td class="p-3">
+                            <div class="flex items-center gap-1">
+                                <button onclick="changeExtraControllers('${s.station_id}', ${fee.extra_controllers} - 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Eksilt">−</button>
+                                <span class="px-1 text-orange-300 text-xs font-semibold whitespace-nowrap" data-extra="${s.station_id}">🎮 ${fee.extra_controllers}${fee.extra_fee > 0 ? ` <span class="text-slate-400">(+₺${fee.extra_fee.toFixed(2)})</span>` : ''}</span>
+                                <button onclick="changeExtraControllers('${s.station_id}', ${fee.extra_controllers} + 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Arttır">+</button>
+                            </div>
+                        </td>
                         <td class="p-3 max-w-[280px]"><div class="flex flex-wrap gap-1 items-center">${drinkChips}</div></td>
                         <td class="p-3 font-bold text-white" data-total="${s.station_id}">₺${fee.total_with_drinks.toFixed(2)}</td>
                         <td class="p-2 flex gap-1 flex-wrap">
@@ -1442,7 +1462,7 @@
             } catch (e) {
                 console.error(e);
                 const tbody = document.getElementById('active-sessions-body');
-                if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-400 text-sm">Aktif oturum listesi yüklenemedi: ${escHtml(String(e))}</td></tr>`;
+                if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-400 text-sm">Aktif oturum listesi yüklenemedi: ${escHtml(String(e))}</td></tr>`;
             }
             renderActiveSessionsBusy = false;
         }
@@ -1463,9 +1483,11 @@
                             const sf = document.querySelector(`[data-session-fee="${s.station_id}"]`);
                             const tt = document.querySelector(`[data-total="${s.station_id}"]`);
                             const tl = document.querySelector(`[data-live="${s.station_id}"]`);
+                            const ex = document.querySelector(`[data-extra="${s.station_id}"]`);
                             if (sf) sf.textContent = '₺' + fee.current_fee.toFixed(2);
                             if (tt) tt.textContent = '₺' + fee.total_with_drinks.toFixed(2);
                             if (tl) tl.textContent = `${fee.minutes}dk ${fee.seconds}s`;
+                            if (ex) ex.innerHTML = '🎮 ' + fee.extra_controllers + (fee.extra_fee > 0 ? ` <span class="text-slate-400">(+₺${fee.extra_fee.toFixed(2)})</span>` : '');
                         } catch (e) { console.error('Canlı güncelleme hatası:', e); }
                     }
                 } catch (e) { console.error('Oturum listesi hatası:', e); }
@@ -1503,6 +1525,13 @@
                             <div class="flex items-center justify-between"><span class="text-slate-400">Başlangıç</span><span class="text-slate-300 font-mono">${new Date(sess.start_time).toLocaleTimeString('tr-TR')}</span></div>
                             <div class="flex items-center justify-between"><span class="text-slate-400">Geçen Süre</span><span class="text-emerald-300 font-mono">${live.minutes}dk ${live.seconds}s</span></div>
                             <div class="flex items-center justify-between"><span class="text-slate-400">Ücret</span><span class="text-amber-300 font-bold">₺${live.total_with_drinks.toFixed(2)}</span></div>
+                            <div class="flex items-center justify-between"><span class="text-slate-400">Ekstra Kumanda</span>
+                                <span class="flex items-center gap-1">
+                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} - 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Eksilt">−</button>
+                                    <span class="text-orange-300 font-semibold whitespace-nowrap">🎮 ${live.extra_controllers}${live.extra_fee > 0 ? ` <span class="text-slate-500">(+₺${live.extra_fee.toFixed(2)})</span>` : ''}</span>
+                                    <button onclick="changeExtraControllers('${st.id}', ${live.extra_controllers} + 1)" class="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold leading-none transition" title="Arttır">+</button>
+                                </span>
+                            </div>
                         </div>` : '';
                     const actionBtns = isActive ? `
                         <button onclick="openEndModal('${st.id}', '${esc(st.name)}', '${esc(sess.customer)}', ${live ? (live.minutes || 0) : 0})" class="flex-1 py-2 bg-red-600/80 hover:bg-red-500 rounded-xl text-sm font-medium transition">Sonlandır</button>
@@ -1829,8 +1858,14 @@
             document.getElementById('start-station-name').value = stationName;
             document.getElementById('start-customer').value = '';
             document.getElementById('start-notes').value = '';
+            document.getElementById('start-extra-controllers').value = 0;
             openModal('modal-start');
             setTimeout(() => document.getElementById('start-customer').focus(), 100);
+        }
+
+        function adjustExtraControllers(delta) {
+            const el = document.getElementById('start-extra-controllers');
+            el.value = Math.max(0, parseInt(el.value || '0', 10) + delta);
         }
 
         async function confirmStartSession() {
@@ -1838,9 +1873,10 @@
             const customer = document.getElementById('start-customer').value.trim();
             const paymentHint = document.getElementById('start-payment-hint').value;
             const notes = document.getElementById('start-notes').value.trim();
+            const extraControllers = parseInt(document.getElementById('start-extra-controllers').value, 10) || 0;
             if (!customer) { showToast('Müşteri adı gerekli!', 'error'); return; }
             try {
-                await invoke('start_session', { stationId, customer, rateType: paymentHint, notes, tags: '' });
+                await invoke('start_session', { stationId, customer, rateType: paymentHint, notes, tags: '', extraControllers });
                 closeModal('modal-start');
                 showToast('Oturum başlatıldı!');
                 if (currentTab === 'stations') loadStations();
@@ -1906,7 +1942,7 @@
         async function updateEndTotal() {
             if (!endSessionData) return;
             const payment = document.getElementById('end-payment').value;
-            let baseFee = 0, drinkTotal = 0, note = '';
+            let baseFee = 0, drinkTotal = 0, extraFee = 0, extraControllers = 0, note = '';
             try {
                 if (endTimeMode === 'manual') {
                     const customDatetime = document.getElementById('end-custom-datetime').value;
@@ -1920,13 +1956,18 @@
                     const pricing = await invoke('get_pricing');
                     const perMinute = payment === 'kart' ? pricing.card_per_minute : pricing.cash_per_minute;
                     const roundMinutes = pricing.round_minutes || 1;
-                    baseFee = Math.max(Math.ceil(diffMins / roundMinutes) * roundMinutes * perMinute, pricing.min_charge || 0);
+                    const roundedMins = Math.ceil(diffMins / roundMinutes) * roundMinutes;
+                    baseFee = Math.max(roundedMins * perMinute, pricing.min_charge || 0);
                     const fee = await invoke('calculate_live_fee', { stationId: endSessionData.stationId, paymentMethod: payment });
                     drinkTotal = fee.drink_total;
+                    extraControllers = fee.extra_controllers || 0;
+                    extraFee = extraControllers * ((pricing.extra_controller_per_hour || 75) / 60) * roundedMins;
                 } else {
                     const fee = await invoke('calculate_live_fee', { stationId: endSessionData.stationId, paymentMethod: payment });
                     baseFee = fee.current_fee;
                     drinkTotal = fee.drink_total;
+                    extraControllers = fee.extra_controllers || 0;
+                    extraFee = fee.extra_fee || 0;
                 }
             } catch (e) { console.error('Ücret hesaplama hatası:', e); return; }
 
@@ -1940,12 +1981,12 @@
                     ? new Date(document.getElementById('end-custom-datetime').value) : new Date();
                 campaignPct = await computeCampaignRate(dt);
                 if (campaignPct > 0) {
-                    const d = baseFee * campaignPct / 100;
+                    const d = (baseFee + extraFee) * campaignPct / 100;
                     sessionFee = baseFee - d;
                     note = 'Kampanya indirimi (%' + (Math.round(campaignPct * 100) / 100) + ')';
                 }
             }
-            let total = sessionFee + drinkTotal;
+            let total = sessionFee + extraFee + drinkTotal;
             if (document.getElementById('end-promo-id').value) {
                 const pc = endPromoData;
                 if (pc) {
@@ -1954,6 +1995,7 @@
                 }
             }
             document.getElementById('end-session-fee').textContent = '₺' + sessionFee.toFixed(2);
+            document.getElementById('end-extra-fee').textContent = extraControllers > 0 ? '🎮 ' + extraControllers + ' × ₺' + extraFee.toFixed(2) : '₺0.00';
             document.getElementById('end-drink-total').textContent = '₺' + drinkTotal.toFixed(2);
             document.getElementById('end-total').textContent = '₺' + total.toFixed(2);
             if (note) document.getElementById('end-session-fee').textContent += ' (' + note + ')';
@@ -2004,6 +2046,13 @@
 
         async function resumeSession(stationId) {
             try { await invoke('resume_session', { stationId }); showToast('Oturum devam ediyor'); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        // ─── Ekstra Kumanda ────────────────────────────────
+
+        async function changeExtraControllers(stationId, value) {
+            const next = Math.max(0, parseInt(value || '0', 10));
+            try { await invoke('update_session_extra_controllers', { stationId, extraControllers: next }); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Notlar ─────────────────────────────────────────
@@ -2188,6 +2237,7 @@
                 document.getElementById('price-round').value = c.round_minutes;
                 document.getElementById('price-max-session').value = c.max_session_minutes;
                 document.getElementById('price-warning').value = c.warning_before_minutes;
+                document.getElementById('price-extra-controller').value = c.extra_controller_per_hour;
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
@@ -2200,6 +2250,7 @@
                 round_minutes: parseInt(document.getElementById('price-round').value) || 1,
                 max_session_minutes: parseInt(document.getElementById('price-max-session').value) || 0,
                 warning_before_minutes: parseInt(document.getElementById('price-warning').value) || 5,
+                extra_controller_per_hour: parseFloat(document.getElementById('price-extra-controller').value) || 75,
             };
             try { await invoke('set_pricing', { config }); showToast('Fiyatlandırma kaydedildi!'); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -2930,7 +2981,10 @@
             const drinksHtml = (data.drinks && data.drinks.length ? data.drinks.map(function(d) {
                 return '<div class="flex justify-between text-sm"><span>' + escHtml(d.drink_name) + ' x' + d.quantity + '</span><span>₺' + Number(d.total).toFixed(2) + '</span></div>';
             }).join('') : '<div class="text-sm text-gray-500">İçecek yok</div>');
-            const sessionFee = Number(s.total - (s.drink_total || 0)).toFixed(2);
+            const extraControllers = Number(s.extra_controllers || 0);
+            const extraFee = Number(s.extra_fee || 0);
+            const sessionFee = Number(s.total - (s.drink_total || 0) - extraFee).toFixed(2);
+            const extraLine = extraControllers > 0 ? '<div class="flex justify-between"><span>Ekstra Kumanda x' + extraControllers + '</span><span>₺' + extraFee.toFixed(2) + '</span></div>' : '';
             const hasDiscount = Number(s.discount) > 0;
             const discLine = hasDiscount ? '<div class="flex justify-between text-sm text-gray-600"><span>İndirim</span><span>-₺' + Number(s.discount).toFixed(2) + '</span></div>' : '';
             document.getElementById('print-area').innerHTML =
@@ -2950,6 +3004,7 @@
                 '<div class="text-sm">' + drinksHtml + '</div>' +
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-sm"><div class="flex justify-between"><span>Oturum Ücreti</span><span>₺' + sessionFee + '</span></div>' +
+                extraLine +
                 '<div class="flex justify-between"><span>İçecek Toplamı</span><span>₺' + Number(s.drink_total || 0).toFixed(2) + '</span></div>' +
                 discLine +
                 '<div class="flex justify-between text-base font-bold mt-1"><span>GENEL TOPLAM</span><span>₺' + Number(s.total).toFixed(2) + '</span></div></div>' +

@@ -14,7 +14,7 @@ pub fn get_pricing(state: State<AppState>) -> PricingConfig { state.load_pricing
 pub fn set_pricing(config: PricingConfig, state: State<AppState>) -> Result<(), String> {
     crate::commands::auth::require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    for (k, v) in [("cash_per_minute",config.cash_per_minute),("card_per_minute",config.card_per_minute),("min_charge",config.min_charge),("vip_per_minute",config.vip_per_minute)] {
+    for (k, v) in [("cash_per_minute",config.cash_per_minute),("card_per_minute",config.card_per_minute),("min_charge",config.min_charge),("vip_per_minute",config.vip_per_minute),("extra_controller_per_hour",config.extra_controller_per_hour)] {
         conn.execute("INSERT OR REPLACE INTO pricing_config (key, value) VALUES (?1, ?2)", params![k, v.to_string()]).map_err(|e| e.to_string())?;
     }
     for (k, v) in [("round_minutes",config.round_minutes.max(1)),("max_session_minutes",config.max_session_minutes),("warning_before_minutes",config.warning_before_minutes)] {
@@ -30,13 +30,14 @@ fn map_history(row: &rusqlite::Row) -> rusqlite::Result<SessionRecord> {
         start_time: row.get(3)?, end_time: row.get(4)?, duration_minutes: row.get(5)?,
         total: row.get(6)?, payment_method: row.get(7)?, rate_type: row.get(8)?,
         drink_total: row.get(9)?, discount: row.get(10)?, notes: row.get(11)?, tags: row.get(12)?,
+        extra_controllers: row.get(13)?, extra_fee: row.get(14)?,
     })
 }
 
 #[tauri::command]
 pub fn get_history(state: State<AppState>) -> Result<Vec<SessionRecord>, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,'') FROM session_history ORDER BY end_time DESC LIMIT 500").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,''),COALESCE(extra_controllers,0),COALESCE(extra_fee,0) FROM session_history ORDER BY end_time DESC LIMIT 500").map_err(|e| e.to_string())?;
     let records = stmt.query_map([], map_history).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(records)
 }
@@ -44,7 +45,7 @@ pub fn get_history(state: State<AppState>) -> Result<Vec<SessionRecord>, String>
 #[tauri::command]
 pub fn get_history_filtered(filter: HistoryFilter, state: State<AppState>) -> Result<Vec<SessionRecord>, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut sql = "SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,'') FROM session_history WHERE 1=1".to_string();
+    let mut sql = "SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,''),COALESCE(extra_controllers,0),COALESCE(extra_fee,0) FROM session_history WHERE 1=1".to_string();
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     let mut idx = 1;
     macro_rules! add_filter { ($col:expr, $val:expr) => { if let Some(ref v) = $val { sql.push_str(&format!(" AND {} = ?{}", $col, idx)); args.push(Box::new(v.clone())); idx += 1; } } }
@@ -100,7 +101,7 @@ pub fn export_history_csv(state: State<AppState>) -> Result<String, String> {
 pub fn export_history_json(state: State<AppState>) -> Result<String, String> {
     let records = {
         let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-        let mut stmt = conn.prepare("SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,'') FROM session_history ORDER BY end_time DESC").map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare("SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,''),COALESCE(extra_controllers,0),COALESCE(extra_fee,0) FROM session_history ORDER BY end_time DESC").map_err(|e| e.to_string())?;
         let rows: Vec<_> = stmt.query_map([], map_history).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
         rows
     };
@@ -120,7 +121,7 @@ pub fn backup_database(state: State<AppState>) -> Result<String, String> { state
 pub fn get_receipt(history_id: String, state: State<AppState>) -> Result<ReceiptData, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let session = conn.query_row(
-        "SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,'') FROM session_history WHERE id = ?1",
+        "SELECT id,station_name,customer,start_time,end_time,duration_minutes,total,payment_method,rate_type,COALESCE(drink_total,0),COALESCE(discount,0),COALESCE(notes,''),COALESCE(tags,''),COALESCE(extra_controllers,0),COALESCE(extra_fee,0) FROM session_history WHERE id = ?1",
         params![history_id], map_history).map_err(|_| "Kayıt bulunamadı".to_string())?;
     let mut stmt = conn.prepare("SELECT id, session_id, station_name, customer, drink_name, price, quantity, total, order_time FROM drink_orders WHERE session_id = ?1 ORDER BY order_time ASC").map_err(|e| e.to_string())?;
     let drinks: Vec<DrinkOrder> = stmt.query_map(params![history_id], |row| {

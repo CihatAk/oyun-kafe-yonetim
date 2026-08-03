@@ -20,7 +20,8 @@ pub fn session_fee(
     start_str: &str,
     paused_at: Option<&str>,
     total_paused: i64,
-) -> (i64, i64, f64, bool) {
+    extra_controllers: i64,
+) -> (i64, i64, f64, f64, bool) {
     let st_type: String = conn
         .query_row("SELECT COALESCE(station_type,'standard') FROM stations WHERE id = ?1", params![station_id], |r| r.get(0))
         .unwrap_or_else(|_| "standard".into());
@@ -52,7 +53,9 @@ pub fn session_fee(
     let chunks = ((mins as f64) / (round_mins as f64)).ceil() as i64;
     let rounded = chunks * round_mins;
     let fee = (rounded as f64 * per_min).max(pricing.min_charge);
-    (mins, secs, fee, is_paused)
+    let extra_per_min = pricing.extra_controller_per_hour / 60.0;
+    let extra_fee = extra_controllers.max(0) as f64 * extra_per_min * (rounded as f64);
+    (mins, secs, fee, extra_fee, is_paused)
 }
 
 pub fn overview(conn: &Connection) -> serde_json::Value {
@@ -76,7 +79,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
 
     let mut stations: Vec<serde_json::Value> = Vec::new();
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT s.id, s.name, s.station_type, s.group_name, s.status, COALESCE(a.customer,''), a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0) FROM stations s LEFT JOIN active_sessions a ON a.station_id = s.id ORDER BY s.group_name, s.name",
+        "SELECT s.id, s.name, s.station_type, s.group_name, s.status, COALESCE(a.customer,''), a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(a.extra_controllers,0) FROM stations s LEFT JOIN active_sessions a ON a.station_id = s.id ORDER BY s.group_name, s.name",
     ) {
         if let Ok(rows) = stmt.query_map([], |row| {
             Ok((
@@ -89,13 +92,14 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 row.get::<_, Option<String>>(6)?,
                 row.get::<_, Option<String>>(7)?,
                 row.get::<_, i64>(8)?,
+                row.get::<_, i64>(9)?,
             ))
         }) {
             for r in rows.flatten() {
-                let (id, name, stype, group, status, customer, start, paused_at, total_paused) = r;
+                let (id, name, stype, group, status, customer, start, paused_at, total_paused, extra_controllers) = r;
                 let eff_status: String = if status == "active" && paused_at.is_some() { "paused".into() } else { status.clone() };
                 let elapsed_min = if status == "active" {
-                    let (m, _s, _f, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused);
+                    let (m, _s, _f, _x, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused, 0);
                     m
                 } else {
                     0
@@ -103,7 +107,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 stations.push(json!({
                     "id": id, "name": name, "type": stype, "group": group,
                     "status": eff_status, "customer": customer, "start_time": start,
-                    "elapsed_min": elapsed_min,
+                    "elapsed_min": elapsed_min, "extra_controllers": extra_controllers,
                 }));
             }
         }
@@ -112,7 +116,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
     let mut sessions: Vec<serde_json::Value> = Vec::new();
     let mut live_estimate = 0.0f64;
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT station_id, station_name, customer, start_time, rate_type, paused_at, COALESCE(total_paused_seconds,0) FROM active_sessions",
+        "SELECT station_id, station_name, customer, start_time, rate_type, paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions",
     ) {
         if let Ok(rows) = stmt.query_map([], |row| {
             Ok((
@@ -123,20 +127,22 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 row.get::<_, String>(4)?,
                 row.get::<_, Option<String>>(5)?,
                 row.get::<_, i64>(6)?,
+                row.get::<_, i64>(7)?,
             ))
         }) {
             for r in rows.flatten() {
-                let (station_id, station_name, customer, start_time, rate_type, paused_at, total_paused) = r;
-                let (mins, _secs, fee, is_paused) =
-                    session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused);
-                live_estimate += fee;
+                let (station_id, station_name, customer, start_time, rate_type, paused_at, total_paused, extra_controllers) = r;
+                let (mins, _secs, fee, extra_fee, is_paused) =
+                    session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused, extra_controllers);
+                live_estimate += fee + extra_fee;
                 let drink_total =
                     scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE session_id = ?1", params![station_id]);
                 sessions.push(json!({
                     "station_id": station_id, "station_name": station_name,
                     "customer": customer, "rate_type": rate_type, "start_time": start_time,
                     "is_paused": is_paused, "minutes": mins, "fee": fee,
-                    "drink_total": drink_total, "total": fee + drink_total,
+                    "extra_controllers": extra_controllers, "extra_fee": extra_fee,
+                    "drink_total": drink_total, "total": fee + extra_fee + drink_total,
                 }));
             }
         }
@@ -385,7 +391,7 @@ mod tests {
         let conn = test_conn();
         let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
         let paused = (Local::now() - chrono::Duration::minutes(20)).to_rfc3339();
-        let (mins, _s, _f, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, Some(&paused), 0);
+        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, Some(&paused), 0, 0);
         assert!(is_paused);
         assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
     }
@@ -394,9 +400,19 @@ mod tests {
     fn resumed_session_subtracts_total_paused() {
         let conn = test_conn();
         let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
-        let (mins, _s, _f, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, None, 1200);
+        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, None, 1200, 0);
         assert!(!is_paused);
         assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
+    }
+
+    #[test]
+    fn extra_controllers_add_hourly_fee_per_minute() {
+        let conn = test_conn();
+        let start = (Local::now() - chrono::Duration::minutes(30)).to_rfc3339();
+        let (mins, _s, _f, extra_fee, _p) = session_fee(&conn, "pc-test", "nakit", &start, None, 0, 1);
+        assert!(mins >= 29 && mins <= 31, "beklenen ~30 dk, gelen {}", mins);
+        let expected = 75.0 / 60.0 * mins as f64;
+        assert!((extra_fee - expected).abs() < 0.01, "beklenen ~{:.2}, gelen {:.2}", expected, extra_fee);
     }
 
     #[test]

@@ -124,6 +124,7 @@ pub fn migrate_db(conn: &Connection) {
         ("active_sessions", "tags TEXT NOT NULL DEFAULT ''"),
         ("active_sessions", "paused_at TEXT"),
         ("active_sessions", "total_paused_seconds INTEGER NOT NULL DEFAULT 0"),
+        ("active_sessions", "extra_controllers INTEGER NOT NULL DEFAULT 0"),
         ("stations", "group_name TEXT NOT NULL DEFAULT ''"),
         ("drinks", "category TEXT NOT NULL DEFAULT 'icecek'"),
         ("drinks", "stock INTEGER NOT NULL DEFAULT -1"),
@@ -135,6 +136,8 @@ pub fn migrate_db(conn: &Connection) {
         ("session_history", "drink_total REAL DEFAULT 0"),
         ("session_history", "notes TEXT NOT NULL DEFAULT ''"),
         ("session_history", "tags TEXT NOT NULL DEFAULT ''"),
+        ("session_history", "extra_controllers INTEGER NOT NULL DEFAULT 0"),
+        ("session_history", "extra_fee REAL NOT NULL DEFAULT 0"),
         ("drink_orders", "drink_id TEXT NOT NULL DEFAULT ''"),
         ("session_history", "discount REAL DEFAULT 0"),
     ];
@@ -236,6 +239,7 @@ impl AppState {
             min_charge: g("min_charge").and_then(|v| v.parse().ok()).unwrap_or(0.0),
             round_minutes: g("round_minutes").and_then(|v| v.parse().ok()).unwrap_or(1),
             vip_per_minute: g("vip_per_minute").and_then(|v| v.parse().ok()).unwrap_or(6.00),
+            extra_controller_per_hour: g("extra_controller_per_hour").and_then(|v| v.parse().ok()).unwrap_or(75.00),
             max_session_minutes: g("max_session_minutes").and_then(|v| v.parse().ok()).unwrap_or(0),
             warning_before_minutes: g("warning_before_minutes").and_then(|v| v.parse().ok()).unwrap_or(5),
         }

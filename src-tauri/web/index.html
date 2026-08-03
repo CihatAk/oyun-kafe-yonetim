@@ -551,8 +551,8 @@
         : '<b data-elapsed data-start="' + esc(s.start_time||'') + '">' + dur(s.minutes) + '</b>';
       return '<div class="row">' +
         '<div class="r1"><span class="name">' + esc(s.station_name) + '</span><span class="badge st-' + (paused?'paused':'busy') + '" style="color:' + (paused?'var(--amber)':'var(--green)') + '">' + (paused?'⏸':'●') + '</span></div>' +
-        '<div class="r2">👤 ' + esc(s.customer||'-') + ' · ' + esc(s.rate_type||'-') + ' · ' + el + (paused?' <span class="paused">(duraklatıldı)</span>':'') + '</div>' +
-        '<div class="r3"><span>İçecek: <b>' + fmt(s.drink_total) + '</b></span><span class="fee est">' + fmt(s.fee) + ' <small>(tahmini)</small></span></div>' +
+        '<div class="r2">👤 ' + esc(s.customer||'-') + ' · ' + esc(s.rate_type||'-') + ' · ' + el + (paused?' <span class="paused">(duraklatıldı)</span>':'') + (s.extra_controllers > 0 ? ' <span class="paused" style="color:var(--amber)">🎮 +' + s.extra_controllers + '</span>' : '') + '</div>' +
+        '<div class="r3"><span>İçecek: <b>' + fmt(s.drink_total) + '</b></span><span class="fee est">' + fmt(s.fee) + (s.extra_fee > 0 ? ' + 🎮 ' + fmt(s.extra_fee) : '') + ' <small>(tahmini)</small></span></div>' +
         '<div class="r3"><span></span><span class="fee">Toplam: ' + fmt(s.total) + '</span></div>' +
         '</div>';
     }).join('');
