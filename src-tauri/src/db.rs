@@ -19,6 +19,19 @@ pub struct CurrentUser {
     pub username: String,
     pub full_name: String,
     pub role: String,
+    pub permissions: String,
+}
+
+impl CurrentUser {
+    pub fn discount_limit(&self) -> f64 {
+        if self.role == "admin" {
+            return f64::MAX;
+        }
+        serde_json::from_str::<serde_json::Value>(&self.permissions)
+            .ok()
+            .and_then(|v| v.get("discount_limit").and_then(|x| x.as_f64()))
+            .unwrap_or(0.0)
+    }
 }
 
 pub fn get_data_dir() -> PathBuf {
@@ -69,7 +82,8 @@ pub fn migrate_db(conn: &Connection) {
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
             full_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'calisan',
-            active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
+            active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
+            permissions TEXT NOT NULL DEFAULT '{}'
         );
         CREATE TABLE IF NOT EXISTS shifts (
             id TEXT PRIMARY KEY, user_id TEXT NOT NULL, user_name TEXT NOT NULL DEFAULT '',
@@ -88,25 +102,6 @@ pub fn migrate_db(conn: &Connection) {
         );
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY, value TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS campaigns (
-            id TEXT PRIMARY KEY, name TEXT NOT NULL,
-            discount_type TEXT NOT NULL, discount_value REAL NOT NULL,
-            days TEXT NOT NULL DEFAULT 'all', start_time TEXT NOT NULL DEFAULT '',
-            end_time TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS packages (
-            id TEXT PRIMARY KEY, name TEXT NOT NULL, hours INTEGER NOT NULL,
-            price REAL NOT NULL, description TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS promo_codes (
-            id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE,
-            discount_type TEXT NOT NULL, discount_value REAL NOT NULL,
-            max_uses INTEGER NOT NULL DEFAULT 0, used_count INTEGER NOT NULL DEFAULT 0,
-            active INTEGER NOT NULL DEFAULT 1, valid_from TEXT, valid_until TEXT,
-            created_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_hist_end ON session_history(end_time);
         CREATE INDEX IF NOT EXISTS idx_hist_station ON session_history(station_name);
@@ -140,6 +135,8 @@ pub fn migrate_db(conn: &Connection) {
         ("session_history", "extra_fee REAL NOT NULL DEFAULT 0"),
         ("drink_orders", "drink_id TEXT NOT NULL DEFAULT ''"),
         ("session_history", "discount REAL DEFAULT 0"),
+        ("session_history", "discount_reason TEXT NOT NULL DEFAULT ''"),
+        ("users", "permissions TEXT NOT NULL DEFAULT '{}'"),
     ];
     for (table, col_def) in alter_cols {
         let col_name = col_def.split_whitespace().next().unwrap();
@@ -160,15 +157,33 @@ pub fn migrate_db(conn: &Connection) {
     migrate_versioned(conn);
 }
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 fn migrate_versioned(conn: &Connection) {
     let current: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap_or(0);
-    if current < SCHEMA_VERSION {
+    if current < 1 {
         // Sürüm 1: kullanıcı şifreleri Argon2 + kişisel tuz kullanımına geçti
         // (şema değişikliği gerekmez; PHC dizesi tuzu içinde barındırır)
+        let _ = conn.execute_batch("PRAGMA user_version = 1");
+    }
+    if current < 2 {
+        // Sürüm 2: kampanya/paket/promo sistemi tamamen kaldırıldı.
+        // Manuel indirim (personel için sınırlı) bu sistemin yerini aldı.
+        for tbl in ["campaigns", "packages", "promo_codes"] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    params![tbl],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                let _ = conn.execute_batch(&format!("DROP TABLE {};", tbl));
+            }
+        }
         let _ = conn.execute_batch(&format!("PRAGMA user_version = {}", SCHEMA_VERSION));
     }
 }

@@ -101,8 +101,6 @@ fn run_once() -> Result<(), String> {
         "today_sessions": ov["today_sessions"],
         "live_estimate": ov["live_estimate"],
         "low_stock_threshold": ov["low_stock_threshold"],
-        "campaigns_active": ov["campaigns_active"],
-        "packages_active": ov["packages_active"],
         "updated_at": now,
     });
     upsert(&client, &cfg, "kafe_overview", &[overview_row])?;

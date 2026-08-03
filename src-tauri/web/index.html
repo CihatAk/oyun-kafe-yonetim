@@ -184,15 +184,11 @@
     </div>
     <div class="banner" id="ov-live-banner">
       <div class="head">💵 Tahmini anlık ciro</div>
-      <div class="sub">Aktif oturumların anlık ücreti (kampanyasız): <b id="ov-live">₺0</b></div>
+      <div class="sub">Aktif oturumların anlık ücreti: <b id="ov-live">₺0</b></div>
     </div>
     <div class="banner err hidden" id="ov-low-banner">
       <div class="head">⚠️ Düşük stoklu ürünler</div>
       <div class="sub" id="ov-low-list"></div>
-    </div>
-    <div class="banner hidden" id="ov-campaign-banner">
-      <div class="head">🏷️ Aktif kampanyalar</div>
-      <div class="sub" id="ov-campaign-list"></div>
     </div>
     <div class="banner" id="ov-today-banner">
       <div class="head">📅 Bugün özeti</div>
@@ -516,8 +512,7 @@
     else lowB.classList.add('hidden');
 
     var campB = $('ov-campaign-banner');
-    if(d.campaigns_active > 0){ campB.classList.remove('hidden'); $('ov-campaign-list').innerHTML = d.campaigns_active + ' aktif kampanya var.'; }
-    else campB.classList.add('hidden');
+    if(campB) campB.classList.add('hidden');
 
     $('ov-today').innerHTML = 'Kapanan oturum: <b>' + (d.today_sessions||0) + '</b> · İçecek geliri: <b>' + fmt(d.today_drinks) + '</b> · Dolu/Boş masa: <b>' + d.active_count + ' / ' + d.idle_count + '</b>';
   }

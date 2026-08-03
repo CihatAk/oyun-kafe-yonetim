@@ -76,6 +76,11 @@ pub fn require_admin(state: &State<AppState>) -> Result<CurrentUser, String> {
     Ok(u)
 }
 
+pub fn permissions_json(discount_limit: Option<f64>) -> String {
+    let limit = discount_limit.unwrap_or(0.0).max(0.0);
+    serde_json::json!({ "discount_limit": limit }).to_string()
+}
+
 pub fn log_audit(state: &State<AppState>, action: &str, entity: &str, detail: &str) {
     if let Ok(conn) = state.db.lock() {
         log_audit_conn(&conn, state, action, entity, detail);
@@ -97,13 +102,13 @@ pub fn log_audit_conn(conn: &rusqlite::Connection, state: &AppState, action: &st
 #[tauri::command]
 pub fn login(username: String, password: String, state: State<AppState>) -> Result<CurrentUser, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let user = conn.query_row("SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?1", params![username],
-        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, i64>(5)?)))
+    let user = conn.query_row("SELECT id, username, password_hash, full_name, role, active, COALESCE(permissions,'{}') FROM users WHERE username = ?1", params![username],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, i64>(5)?, r.get::<_, String>(6)?)))
         .map_err(|_| "Kullanıcı bulunamadı!")?;
-    let (id, uname, hash, full_name, role, active) = user;
+    let (id, uname, hash, full_name, role, active, permissions) = user;
     if active != 1 { return Err("Kullanıcı pasif!".into()); }
     if !verify_password(&password, &hash) { return Err("Yanlış şifre!".into()); }
-    let cu = CurrentUser { id, username: uname, full_name, role };
+    let cu = CurrentUser { id, username: uname, full_name, role, permissions };
     *state.current_user.lock().map_err(|e| e.to_string())? = Some(cu.clone());
     Ok(cu)
 }
@@ -124,34 +129,36 @@ pub fn get_current_user(state: State<AppState>) -> Result<Option<CurrentUser>, S
 pub fn list_users(state: State<AppState>) -> Result<Vec<UserRecord>, String> {
     require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, full_name, role, active, created_at FROM users ORDER BY role DESC, full_name").map_err(|e| e.to_string())?;
-    let users = stmt.query_map([], |row| Ok(UserRecord { id: row.get(0)?, username: row.get(1)?, full_name: row.get(2)?, role: row.get(3)?, active: row.get(4)?, created_at: row.get(5)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+    let mut stmt = conn.prepare("SELECT id, username, full_name, role, active, COALESCE(permissions,'{}'), created_at FROM users ORDER BY role DESC, full_name").map_err(|e| e.to_string())?;
+    let users = stmt.query_map([], |row| Ok(UserRecord { id: row.get(0)?, username: row.get(1)?, full_name: row.get(2)?, role: row.get(3)?, active: row.get(4)?, permissions: row.get(5)?, created_at: row.get(6)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(users)
 }
 
 #[tauri::command]
-pub fn add_user(username: String, password: String, full_name: String, role: String, state: State<AppState>) -> Result<(), String> {
+pub fn add_user(username: String, password: String, full_name: String, role: String, discount_limit: Option<f64>, state: State<AppState>) -> Result<(), String> {
     require_admin(&state)?;
     if username.trim().len() < 3 { return Err("Kullanıcı adı en az 3 karakter olmalı!".into()); }
     if password.len() < 4 { return Err("Şifre en az 4 karakter olmalı!".into()); }
     let role = if role == "admin" { "admin" } else { "calisan" };
+    let permissions = permissions_json(discount_limit);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let exists: bool = conn.query_row("SELECT COUNT(*) FROM users WHERE username = ?1", params![username.trim()], |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
     if exists { return Err("Bu kullanıcı adı zaten var!".into()); }
     let id = Uuid::new_v4().to_string();
-    conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
-        params![id, username.trim(), make_hash(&password), full_name, role, now()]).map_err(|e| e.to_string())?;
+    conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, permissions, created_at) VALUES (?1,?2,?3,?4,?5,1,?6,?7)",
+        params![id, username.trim(), make_hash(&password), full_name, role, permissions, now()]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "add_user", "users", format!("{} eklendi ({})", full_name, role).as_str());
     Ok(())
 }
 
 #[tauri::command]
-pub fn update_user(user_id: String, full_name: String, role: String, active: bool, state: State<AppState>) -> Result<(), String> {
+pub fn update_user(user_id: String, full_name: String, role: String, active: bool, discount_limit: Option<f64>, state: State<AppState>) -> Result<(), String> {
     let admin = require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     if user_id == admin.id && active == false { return Err("Kendi hesabınızı kapatamazsınız!".into()); }
     let role = if role == "admin" { "admin" } else { "calisan" };
-    conn.execute("UPDATE users SET full_name = ?1, role = ?2, active = ?3 WHERE id = ?4", params![full_name, role, if active {1} else {0}, user_id]).map_err(|e| e.to_string())?;
+    let permissions = permissions_json(discount_limit);
+    conn.execute("UPDATE users SET full_name = ?1, role = ?2, active = ?3, permissions = ?4 WHERE id = ?5", params![full_name, role, if active {1} else {0}, permissions, user_id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "update_user", "users", format!("{} güncellendi", full_name).as_str());
     Ok(())
 }

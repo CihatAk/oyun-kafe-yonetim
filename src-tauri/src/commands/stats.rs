@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local};
+use chrono::Local;
 use rusqlite::params;
 use tauri::State;
 
@@ -71,75 +71,4 @@ pub fn calculate_live_fee(station_id: String, payment_method: String, state: Sta
         "auto_end": pricing.max_session_minutes > 0 && total_secs >= max_secs,
         "remaining_seconds": if max_secs > 0 { (max_secs - total_secs).max(0) } else { 0 },
     }))
-}
-
-#[tauri::command]
-pub fn get_revenue_by_period(state: State<AppState>, period: String) -> Result<serde_json::Value, String> {
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let today = Local::now().date_naive();
-    let (labels, count): (Vec<String>, usize) = match period.as_str() {
-        "daily" => ((0..7).rev().map(|i| (today - chrono::Duration::days(i)).format("%d/%m").to_string()).collect(), 7),
-        "weekly" => ((0..4).rev().map(|i| { let d = today - chrono::Duration::weeks(i); format!("{}-{}", d.format("%d/%m"), (d+chrono::Duration::days(6)).format("%d/%m")) }).collect(), 4),
-        "monthly" => ((0..6).rev().map(|i| { let d = today - chrono::Duration::days(i*30); d.format("%B %Y").to_string() }).collect(), 6),
-        _ => ((0..7).rev().map(|i| (today - chrono::Duration::days(i)).format("%d/%m").to_string()).collect(), 7),
-    };
-    let values: Vec<f64> = (0..count).map(|i| {
-        match period.as_str() {
-            "daily" => { let d = (today - chrono::Duration::days((count-1-i) as i64)).to_string(); conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time)=?1", params![d], |r| r.get(0)).unwrap_or(0.0) }
-            "weekly" => { let ws = today - chrono::Duration::weeks((count-1-i) as i64); let we = ws + chrono::Duration::days(6); conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time)>=?1 AND date(end_time)<=?2", params![ws.to_string(), we.to_string()], |r| r.get(0)).unwrap_or(0.0) }
-            "monthly" => {
-                let rd = today - chrono::Duration::days(((count-1-i) as i64)*30);
-                let ms = rd.with_day(1).unwrap_or(rd);
-                let nm = if rd.month()==12 {
-                    if let Some(y) = rd.with_year(rd.year()+1) { y.with_month(1).unwrap_or(y) } else { rd }
-                } else { rd.with_month(rd.month()+1).unwrap_or(rd) };
-                let me = nm - chrono::Duration::days(1);
-                conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time)>=?1 AND date(end_time)<=?2", params![ms.to_string(), me.to_string()], |r| r.get(0)).unwrap_or(0.0)
-            }
-            _ => 0.0,
-        }
-    }).collect();
-    Ok(serde_json::json!({"labels": labels, "values": values}))
-}
-
-#[tauri::command]
-pub fn get_top_stations(state: State<AppState>) -> Result<serde_json::Value, String> {
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT station_name, COUNT(*) as cnt, SUM(total) as rev FROM session_history GROUP BY station_name ORDER BY cnt DESC LIMIT 10").map_err(|e| e.to_string())?;
-    let rows: Vec<(String,i64,f64)> = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
-    Ok(serde_json::json!({ "names": rows.iter().map(|r| &r.0).collect::<Vec<_>>(), "counts": rows.iter().map(|r| r.1).collect::<Vec<_>>(), "revenues": rows.iter().map(|r| r.2).collect::<Vec<_>>() }))
-}
-
-#[tauri::command]
-pub fn get_top_drinks(state: State<AppState>) -> Result<serde_json::Value, String> {
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT drink_name, SUM(quantity) as qty, SUM(total) as rev FROM drink_orders GROUP BY drink_name ORDER BY qty DESC LIMIT 10").map_err(|e| e.to_string())?;
-    let rows: Vec<(String,i64,f64)> = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
-    Ok(serde_json::json!({ "names": rows.iter().map(|r| &r.0).collect::<Vec<_>>(), "quantities": rows.iter().map(|r| r.1).collect::<Vec<_>>(), "revenues": rows.iter().map(|r| r.2).collect::<Vec<_>>() }))
-}
-
-#[tauri::command]
-pub fn get_duration_trend(state: State<AppState>) -> Result<serde_json::Value, String> {
-    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let today = Local::now().date_naive();
-
-    // Optimize: tek sorgu ile  günlük trend (30 ayrı sorgu yerine)
-    let mut day_map = std::collections::HashMap::new();
-    if let Ok(mut stmt) = conn.prepare("SELECT date(end_time) as d, COALESCE(AVG(duration_minutes),0) FROM session_history WHERE date(end_time) >= date(?1, '-30 days') AND date(end_time) <= ?1 GROUP BY d") {
-        if let Ok(rows) = stmt.query_map(params![today.to_string()], |row| Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))) {
-            for r in rows.flatten() {
-                day_map.insert(r.0, (r.1 * 10.0).round() / 10.0);
-            }
-        }
-    }
-
-    let mut labels = Vec::with_capacity(30);
-    let mut values = Vec::with_capacity(30);
-    for i in (0..30).rev() {
-        let d = today - chrono::Duration::days(i);
-        labels.push(d.format("%d/%m").to_string());
-        values.push(day_map.get(&d.to_string()).copied().unwrap_or(0.0));
-    }
-
-    Ok(serde_json::json!({"labels": labels, "values": values}))
 }

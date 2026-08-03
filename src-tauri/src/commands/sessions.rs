@@ -79,6 +79,7 @@ pub fn get_active_sessions(state: State<AppState>) -> Result<Vec<ActiveSession>,
 
 #[tauri::command]
 pub fn update_session_start_time(station_id: String, new_start_time: String, state: State<AppState>) -> Result<ActiveSession, String> {
+    crate::commands::auth::require_admin(&state)?;
     let _p: DateTime<Local> = DateTime::parse_from_rfc3339(&new_start_time).map_err(|e| format!("Geçersiz tarih: {}", e))?.with_timezone(&Local);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET start_time = ?1 WHERE station_id = ?2", params![new_start_time, station_id]).map_err(|_| "Oturum bulunamadı")?;
@@ -97,7 +98,7 @@ pub fn update_session_extra_controllers(station_id: String, extra_controllers: i
 }
 
 #[tauri::command]
-pub fn end_session(station_id: String, payment_method: String, custom_end_time: Option<String>, partial_payments_json: Option<String>, package_id: Option<String>, promo_code: Option<String>, state: State<AppState>) -> Result<SessionRecord, String> {
+pub fn end_session(station_id: String, payment_method: String, custom_end_time: Option<String>, partial_payments_json: Option<String>, discount_amount: Option<f64>, discount_reason: Option<String>, state: State<AppState>) -> Result<SessionRecord, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
 
     let row = conn.query_row(
@@ -134,39 +135,35 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     let base_fee = (rounded_mins as f64 * per_min).max(pricing.min_charge);
     let extra_per_min = pricing.extra_controller_per_hour / 60.0;
     let extra_fee = extra_controllers.max(0) as f64 * extra_per_min * (rounded_mins as f64);
-    let mut session_fee = base_fee + extra_fee;
+
+    let mut total = base_fee + extra_fee + drink_total;
+
+    let current_user = state.current_user.lock().map_err(|e| e.to_string())?.clone();
+    let is_admin = matches!(&current_user, Some(u) if u.role == "admin");
+    let discount_limit = current_user.as_ref().map(|u| u.discount_limit()).unwrap_or(0.0);
+
     let mut discount = 0.0;
     let mut fee_note = String::new();
-
-    if let Some(pkg_id) = &package_id {
-        if !pkg_id.trim().is_empty() {
-            let pkg = conn.query_row("SELECT name, price, active FROM packages WHERE id = ?1", params![pkg_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,f64>(1)?, r.get::<_,i64>(2)?))).map_err(|_| "Paket bulunamadı")?;
-            if pkg.2 != 1 { return Err("Paket pasif!".into()); }
-            session_fee = pkg.1 + extra_fee;
-            discount = (base_fee - pkg.1).max(0.0);
-            fee_note = format!("Paket: {}", pkg.0);
+    let mut discount_reason_saved = String::new();
+    let requested = discount_amount.unwrap_or(0.0).max(0.0);
+    if requested > 0.0 {
+        if !is_admin && discount_limit <= 0.0 {
+            return Err("Bu kullanıcı için manuel indirim yetkisi tanımlı değil!".into());
         }
-    } else {
-        let cd = crate::commands::campaigns::campaign_discount_for(&conn, &end);
-        if cd > 0.0 {
-            discount = (base_fee + extra_fee) * cd / 100.0;
-            session_fee = base_fee + extra_fee - discount;
-            fee_note = format!("Kampanya indirimi (%{:.0})", cd);
+        if !is_admin && requested > discount_limit {
+            return Err(format!("İndirim limiti aşıldı! Bu kullanıcının limiti ₺{:.2}", discount_limit));
         }
+        let applied = requested.min(total);
+        discount = applied;
+        total = (total - applied).max(0.0);
+        let reason = discount_reason.unwrap_or_default().trim().to_string();
+        discount_reason_saved = reason.clone();
+        fee_note = if reason.is_empty() {
+            format!("Manuel indirim: ₺{:.2}", applied)
+        } else {
+            format!("Manuel indirim: ₺{:.2} ({})", applied, reason)
+        };
     }
-
-    let mut total = session_fee + drink_total;
-    let mut used_code = String::new();
-    let promo_codes: Vec<PromoCode> = if let Some(ref code) = promo_code {
-        if !code.trim().is_empty() {
-            let pc = crate::commands::campaigns::validate_promo(&conn, code)?;
-            let pd = crate::commands::campaigns::promo_discount_amount(&pc, total);
-            total = (total - pd).max(0.0);
-            discount += pd;
-            used_code = pc.code.clone();
-            vec![pc]
-        } else { vec![] }
-    } else { vec![] };
 
     let (total_final, final_pm) = if let Some(ref pp) = partial_payments_json {
         let partials: Vec<(String, f64)> = serde_json::from_str(pp).unwrap_or_default();
@@ -193,24 +190,22 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
             }
         }
 
-        for pc in &promo_codes {
-            conn.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ?1", params![pc.id]).map_err(|e| e.to_string())?;
-        }
-
-        let hist_notes = if !fee_note.is_empty() && !used_code.is_empty() { format!("{} • Kod: {}", fee_note, used_code) }
-            else if !fee_note.is_empty() { fee_note.clone() }
-            else if !used_code.is_empty() { format!("Promosyon kodu: {}", used_code) }
-            else { notes.clone() };
+        let hist_notes = if !fee_note.is_empty() { fee_note.clone() } else { notes.clone() };
         let hist_id_inner = Uuid::new_v4().to_string();
         hist_id = hist_id_inner.clone();
-        conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, notes, tags, extra_controllers, extra_fee) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
-            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
+        conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, discount_reason, notes, tags, extra_controllers, extra_fee) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, discount_reason_saved, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE drink_orders SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE partial_payments SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         if let Some(u) = state.current_user.lock().ok().and_then(|g| g.clone()) {
             let _ = conn.execute("UPDATE shifts SET total_sessions = total_sessions + 1, total_revenue = total_revenue + ?1 WHERE user_id = ?2 AND status = 'open'", params![total_final, u.id]);
         }
-        log_audit_conn(&conn, &state, "end_session", "sessions", format!("{} - {} (₺{:.2})", station_name, customer, total_final).as_str());
+        let audit_detail = if discount > 0.0 {
+            format!("{} - {} (₺{:.2}, indirim: ₺{:.2})", station_name, customer, total_final, discount)
+        } else {
+            format!("{} - {} (₺{:.2})", station_name, customer, total_final)
+        };
+        log_audit_conn(&conn, &state, "end_session", "sessions", audit_detail.as_str());
         Ok(())
     })();
 

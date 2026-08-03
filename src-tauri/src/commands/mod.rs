@@ -5,7 +5,6 @@ pub mod finance;
 pub mod stats;
 pub mod auth;
 pub mod settings;
-pub mod campaigns;
 
 use tauri::AppHandle;
 use tauri::Manager;

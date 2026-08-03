@@ -127,6 +127,7 @@ pub struct UserRecord {
     pub full_name: String,
     pub role: String,
     pub active: i64,
+    pub permissions: String,
     pub created_at: String,
 }
 
@@ -149,44 +150,6 @@ pub struct AuditRecord {
     pub action: String,
     pub entity: String,
     pub detail: String,
-    pub created_at: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Campaign {
-    pub id: String,
-    pub name: String,
-    pub discount_type: String,
-    pub discount_value: f64,
-    pub days: String,
-    pub start_time: String,
-    pub end_time: String,
-    pub active: i64,
-    pub created_at: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Package {
-    pub id: String,
-    pub name: String,
-    pub hours: i64,
-    pub price: f64,
-    pub description: String,
-    pub active: i64,
-    pub created_at: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct PromoCode {
-    pub id: String,
-    pub code: String,
-    pub discount_type: String,
-    pub discount_value: f64,
-    pub max_uses: i64,
-    pub used_count: i64,
-    pub active: i64,
-    pub valid_from: Option<String>,
-    pub valid_until: Option<String>,
     pub created_at: String,
 }
 

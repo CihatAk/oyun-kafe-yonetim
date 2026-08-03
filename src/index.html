@@ -159,13 +159,11 @@
             </div>
             <nav class="gh-nav">
                 <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn active">📊 Genel</button>
-                <button onclick="switchTab('stations')" id="tab-btn-stations" class="tab-btn">🖥️ İstasyonlar</button>
                 <button onclick="switchTab('drinks')" id="tab-btn-drinks" class="tab-btn">🥤 Ürünler</button>
-                <button onclick="switchTab('stats')" id="tab-btn-stats" class="tab-btn">📈 İstatistikler</button>
-                <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="tab-btn">💰 Fiyatlandırma</button>
                 <button onclick="switchTab('history')" id="tab-btn-history" class="tab-btn">📋 Geçmiş</button>
-                <button onclick="switchTab('campaigns')" id="tab-btn-campaigns" class="tab-btn">🏷️ Kampanya</button>
                 <button onclick="switchTab('gunsonu')" id="tab-btn-gunsonu" class="tab-btn">🌙 Gün Sonu</button>
+                <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="tab-btn">💰 Fiyatlandırma</button>
+                <button onclick="switchTab('logs')" id="tab-btn-logs" class="tab-btn hidden">📜 Loglar</button>
                 <button onclick="switchTab('personel')" id="tab-btn-personel" class="tab-btn">👥 Personel</button>
             </nav>
         </header>
@@ -195,6 +193,11 @@
                 </div>
             </div>
 
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold">🖥️ İstasyonlar</h2>
+                <button onclick="openAddStationModal()" id="add-station-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition flex items-center gap-2">+ Yeni İstasyon Ekle</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="stations-grid"></div>
             <div class="glass rounded-2xl overflow-hidden">
                 <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
@@ -226,7 +229,7 @@
                     </table>
                 </div>
             </div>
-            <div class="glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
+            <div id="web-card" class="glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-lg font-semibold flex items-center gap-2">📱 Web Görüntüleme</h2>
                     <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/70 text-slate-300" id="web-status">⏳ başlatılıyor...</span>
@@ -265,13 +268,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div id="tab-stations" class="tab-content hidden space-y-6">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">🖥️ İstasyon Yönetimi</h2>
-                <button onclick="openAddStationModal()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition flex items-center gap-2">+ Yeni İstasyon Ekle</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="stations-grid"></div>
         </div>
 
         <!-- ═══ İçecekler ═══ -->
@@ -338,36 +334,6 @@
             </div>
         </div>
 
-        <!-- ═══ İstatistikler ═══ -->
-        <div id="tab-stats" class="tab-content hidden space-y-6">
-            <h2 class="text-xl font-semibold">📈 İstatistikler ve Raporlar</h2>
-            <div class="glass rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">💰 Gelir Grafiği</h3>
-                    <div class="flex gap-2">
-                        <button onclick="loadRevenueChart('daily')" id="rev-btn-daily" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 text-white transition">Günlük</button>
-                        <button onclick="loadRevenueChart('weekly')" id="rev-btn-weekly" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-600 text-slate-300 transition">Haftalık</button>
-                        <button onclick="loadRevenueChart('monthly')" id="rev-btn-monthly" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-600 text-slate-300 transition">Aylık</button>
-                    </div>
-                </div>
-                <div style="height: 300px;"><canvas id="chart-revenue"></canvas></div>
-            </div>
-            <div class="grid grid-cols-2 gap-6">
-                <div class="glass rounded-2xl p-6">
-                    <h3 class="text-lg font-semibold mb-4">🖥️ En Çok Kullanılan İstasyonlar</h3>
-                    <div style="height: 280px;"><canvas id="chart-top-stations"></canvas></div>
-                </div>
-                <div class="glass rounded-2xl p-6">
-                    <h3 class="text-lg font-semibold mb-4">En Çok Tercih Edilen İçecekler</h3>
-                    <div style="height: 280px;"><canvas id="chart-top-drinks"></canvas></div>
-                </div>
-            </div>
-            <div class="glass rounded-2xl p-6">
-                <h3 class="text-lg font-semibold mb-4">⏱️ Ortalama Oturum Süresi Trendi (Son 30 Gün)</h3>
-                <div style="height: 280px;"><canvas id="chart-duration-trend"></canvas></div>
-            </div>
-        </div>
-
         <!-- ═══ Fiyatlandırma ═══ -->
         <div id="tab-pricing" class="tab-content hidden space-y-6">
             <div class="max-w-2xl">
@@ -424,7 +390,7 @@
                     <div class="flex gap-2">
                         <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg text-sm font-medium transition">📊 CSV</button>
                         <button onclick="exportJSON()" class="px-3 py-2 bg-blue-600/80 hover:bg-blue-500 rounded-lg text-sm font-medium transition">📄 JSON</button>
-                        <button onclick="clearHistory()" class="px-3 py-2 bg-red-600/80 hover:bg-red-500 rounded-lg text-sm font-medium transition">🗑️ Temizle</button>
+                        <button onclick="clearHistory()" id="clear-history-btn" class="px-3 py-2 bg-red-600/80 hover:bg-red-500 rounded-lg text-sm font-medium transition">🗑️ Temizle</button>
                     </div>
                 </div>
                 <div class="p-4 border-b border-slate-700/30 bg-slate-800/30">
@@ -452,40 +418,6 @@
                         </tr></thead>
                         <tbody id="history-body"><tr><td colspan="10" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-campaigns" class="tab-content hidden space-y-6">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">🏷️ Kampanya & Paket</h2>
-                <div class="flex items-center gap-3">
-                    <button onclick="openCampaignModal()" id="add-campaign-btn" class="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl text-sm font-medium transition">+ Kampanya</button>
-                    <button onclick="openPackageModal()" id="add-package-btn" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-medium transition">+ Paket</button>
-                    <button onclick="openPromoModal()" id="add-promo-btn" class="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-medium transition">+ Promo Kod</button>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div class="glass rounded-2xl overflow-hidden">
-                    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                        <h3 class="font-semibold">🎯 Kampanyalar</h3>
-                        <button onclick="loadCampaigns()" class="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition">Yenile</button>
-                    </div>
-                    <div id="campaigns-list" class="overflow-y-auto max-h-[560px] p-3 space-y-3"><div class="text-center text-slate-500 text-sm py-10">Kampanya bulunamadı</div></div>
-                </div>
-                <div class="glass rounded-2xl overflow-hidden">
-                    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                        <h3 class="font-semibold">📦 Paketler</h3>
-                        <button onclick="loadPackages()" class="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition">Yenile</button>
-                    </div>
-                    <div id="packages-list" class="overflow-y-auto max-h-[560px] p-3 space-y-3"><div class="text-center text-slate-500 text-sm py-10">Paket bulunamadı</div></div>
-                </div>
-                <div class="glass rounded-2xl overflow-hidden">
-                    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                        <h3 class="font-semibold">🎟️ Promo Kodları</h3>
-                        <button onclick="loadPromos()" class="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition">Yenile</button>
-                    </div>
-                    <div id="promos-list" class="overflow-y-auto max-h-[560px] p-3 space-y-3"><div class="text-center text-slate-500 text-sm py-10">Promo kod bulunamadı</div></div>
                 </div>
             </div>
         </div>
@@ -535,12 +467,15 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="tab-logs" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold">📜 Loglar</h2>
+                <button onclick="renderAuditLog()" class="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition">Yenile</button>
+            </div>
             <div class="glass rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                    <h3 class="font-semibold">🛡️ Denetim Kaydı (Audit Log)</h3>
-                    <button onclick="renderAuditLog()" class="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition">Yenile</button>
-                </div>
-                <div class="overflow-x-auto max-h-[380px] overflow-y-auto">
+                <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
                     <table class="w-full text-left">
                         <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
                             <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">Personel</th><th class="p-3 font-medium">İşlem</th><th class="p-3 font-medium">Nesne</th><th class="p-3 font-medium">Detay</th>
@@ -611,6 +546,11 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">İndirim Limiti (₺ / oturum)</label>
+                    <input type="number" id="user-discount-limit" min="0" step="0.01" value="0" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
+                    <p class="text-xs text-slate-500 mt-1">Yalnızca çalışan rolü için geçerlidir. 0 = manuel indirim yok.</p>
+                </div>
+                <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2" id="user-pass-label">Şifre</label>
                     <input type="password" id="user-password" autocomplete="off" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
                 </div>
@@ -633,138 +573,6 @@
                     <input type="password" id="password-new" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
                 </div>
                 <button onclick="savePassword()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-medium transition">Kaydet</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Kampanya Modal -->
-    <div id="modal-campaign" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-campaign')">
-        <div class="glass rounded-2xl p-8 w-[480px] slide-in">
-            <h3 class="text-xl font-bold mb-6" id="campaign-modal-title">Kampanya Ekle</h3>
-            <input type="hidden" id="campaign-id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Kampanya Adı *</label>
-                    <input type="text" id="campaign-name" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">İndirim Tipi</label>
-                        <select id="campaign-dtype" onchange="toggleCampaignPercentLabel()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                            <option value="percent">Yüzde (%)</option>
-                            <option value="fixed">Sabit (₺)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2" id="campaign-value-label">İndirim (%)</label>
-                        <input type="number" id="campaign-value" step="0.01" min="0" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Geçerli Günler</label>
-                    <select id="campaign-days" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                        <option value="all">Her gün</option>
-                        <option value="0">Pazar</option>
-                        <option value="1">Pazartesi</option>
-                        <option value="2">Salı</option>
-                        <option value="3">Çarşamba</option>
-                        <option value="4">Perşembe</option>
-                        <option value="5">Cuma</option>
-                        <option value="6">Cumartesi</option>
-                    </select>
-                    <p class="text-xs text-slate-500 mt-1">Birden fazla gün için virgülle yazın (ör: 1,5,6)</p>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Başlangıç Saati</label>
-                        <input type="time" id="campaign-start-time" value="00:00" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Bitiş Saati</label>
-                        <input type="time" id="campaign-end-time" value="23:59" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                </div>
-                <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                    <input type="checkbox" id="campaign-active" checked class="rounded bg-slate-800 border-slate-600 text-cyan-500 focus:ring-cyan-500">
-                    Aktif
-                </label>
-                <button onclick="saveCampaign()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-medium transition">Kaydet</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Paket Modal -->
-    <div id="modal-package" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-package')">
-        <div class="glass rounded-2xl p-8 w-[460px] slide-in">
-            <h3 class="text-xl font-bold mb-6" id="package-modal-title">Paket Ekle</h3>
-            <input type="hidden" id="package-id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Paket Adı *</label>
-                    <input type="text" id="package-name" placeholder="Örn: 3 Saat Paketi" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Saat *</label>
-                        <input type="number" id="package-hours" min="1" step="1" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Fiyat (₺) *</label>
-                        <input type="number" id="package-price" step="0.01" min="0" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Açıklama</label>
-                    <input type="text" id="package-desc" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                </div>
-                <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                    <input type="checkbox" id="package-active" checked class="rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500">
-                    Aktif
-                </label>
-                <button onclick="savePackage()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">Kaydet</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Promo Kod Modal -->
-    <div id="modal-promo" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-promo')">
-        <div class="glass rounded-2xl p-8 w-[460px] slide-in">
-            <h3 class="text-xl font-bold mb-6" id="promo-modal-title">Promo Kod Ekle</h3>
-            <input type="hidden" id="promo-id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Kod *</label>
-                    <input type="text" id="promo-code" placeholder="Örn: İNDİRİM10" style="text-transform:uppercase" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">İndirim Tipi</label>
-                        <select id="promo-dtype" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                            <option value="percent">Yüzde (%)</option>
-                            <option value="fixed">Sabit (₺)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">İndirim Değeri *</label>
-                        <input type="number" id="promo-value" step="0.01" min="0" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Maks. Kullanım (0 = sınırsız)</label>
-                        <input type="number" id="promo-max-uses" min="0" step="1" value="0" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 text-sm font-medium mb-2">Son Geçerlilik</label>
-                        <input type="datetime-local" id="promo-valid-until" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
-                    </div>
-                </div>
-                <p id="promo-usage-info" class="hidden text-xs text-slate-400"></p>
-                <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                    <input type="checkbox" id="promo-active" checked class="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500">
-                    Aktif
-                </label>
-                <button onclick="savePromo()" class="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-medium transition">Kaydet</button>
             </div>
         </div>
     </div>
@@ -837,6 +645,7 @@
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Oturum Ücreti:</span><span id="end-session-fee" class="font-semibold text-emerald-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">Ekstra Kumanda:</span><span id="end-extra-fee" class="font-semibold text-orange-400"></span></div>
                     <div class="flex justify-between text-sm"><span class="text-slate-400">İçecek Toplamı:</span><span id="end-drink-total" class="font-semibold text-amber-400"></span></div>
+                    <div class="flex justify-between text-sm" id="end-discount-row"><span class="text-slate-400">İndirim:</span><span id="end-discount-display" class="font-semibold text-red-400"></span></div>
                     <div class="flex justify-between text-lg pt-2 border-t border-slate-600/50"><span class="text-slate-300 font-medium">Genel Toplam:</span><span id="end-total" class="font-bold text-emerald-400 text-2xl"></span></div>
                 </div>
                 <div>
@@ -847,19 +656,15 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Paket (isteğe bağlı)</label>
-                    <select id="end-package" onchange="updateEndTotal()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                        <option value="">-- Paket yok (normal ücret) --</option>
-                    </select>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Manuel İndirim (₺)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="end-discount-amount" min="0" step="0.01" value="0" oninput="updateEndTotal()" class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1" id="end-discount-hint"></p>
                 </div>
                 <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Promosyon Kodu</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="end-promo-code" style="text-transform:uppercase" oninput="validateEndPromo()" class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
-                        <button onclick="validateEndPromo()" class="px-4 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-medium transition">Onayla</button>
-                    </div>
-                    <div id="end-promo-status" class="hidden mt-2 text-sm"></div>
-                    <input type="hidden" id="end-promo-id">
+                    <label class="block text-slate-300 text-sm font-medium mb-2">İndirim Nedeni</label>
+                    <input type="text" id="end-discount-reason" maxlength="200" placeholder="Örn: VIP misafir indirimi" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                 </div>
                 <div>
                     <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
@@ -1263,9 +1068,6 @@
 
         var currentTab = 'dashboard';
         var liveUpdateInterval = null;
-        var charts = {};
-        var endPackages = [];
-        var endPromoData = null;
 
         // ─── Tab Switch ──────────────────────────────────────
 
@@ -1276,13 +1078,12 @@
             document.querySelectorAll('.tab-btn').forEach(el => { el.classList.remove('active'); el.classList.add('text-slate-300'); });
             const btn = document.getElementById('tab-btn-' + tab);
             btn.classList.add('active'); btn.classList.remove('text-slate-300');
-            if (tab === 'stations') loadStations();
+            if (tab === 'dashboard') loadStations();
             if (tab === 'drinks') loadDrinks();
             if (tab === 'history') loadHistory();
             if (tab === 'pricing') loadPricing();
-            if (tab === 'stats') loadStats();
-            if (tab === 'campaigns') loadCampaigns();
             if (tab === 'gunsonu') loadDayEndReport();
+            if (tab === 'logs') renderAuditLog();
             if (tab === 'personel') loadPersonel();
             if (tab === 'dashboard') { loadDashboard(); startLiveUpdates(); } else { stopLiveUpdates(); }
         }
@@ -1393,6 +1194,7 @@
             try {
                 const sessions = await invoke('get_active_sessions');
                 const tbody = document.getElementById('active-sessions-body');
+                const isAdmin = currentUser && currentUser.role === 'admin';
                 if (sessions.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="10" class="p-12 text-center text-slate-500">Aktif oturum bulunmuyor</td></tr>';
                     renderActiveSessionsBusy = false;
@@ -1452,7 +1254,7 @@
                         <td class="p-3 font-bold text-white" data-total="${s.station_id}">₺${fee.total_with_drinks.toFixed(2)}</td>
                         <td class="p-2 flex gap-1 flex-wrap">
                             ${pauseBtn}
-                            <button onclick="openEditStartTimeModal('${s.station_id}', '${esc(s.station_name)}', '${esc(s.customer)}', '${s.start_time}')" class="px-2 py-1.5 bg-slate-600/80 hover:bg-slate-500 rounded-lg text-xs transition" title="Saat Düzenle">🕐</button>
+                            ${isAdmin ? `<button onclick="openEditStartTimeModal('${s.station_id}', '${esc(s.station_name)}', '${esc(s.customer)}', '${s.start_time}')" class="px-2 py-1.5 bg-slate-600/80 hover:bg-slate-500 rounded-lg text-xs transition" title="Saat Düzenle">🕐</button>` : ''}
                             <button onclick="openNotesModal('${s.station_id}', '${esc(s.notes || '')}', '${esc(s.tags || '')}')" class="px-2 py-1.5 bg-slate-600/80 hover:bg-slate-500 rounded-lg text-xs transition" title="Notlar">📝</button>
                             <button onclick="openEndModal('${s.station_id}', '${esc(s.station_name)}', '${esc(s.customer)}', ${fee.minutes || 0})" class="px-3 py-1.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-xs font-medium transition">Sonlandır</button>
                         </td>
@@ -1504,6 +1306,7 @@
                     invoke('get_stations'),
                     invoke('get_active_sessions')
                 ]);
+                const isAdmin = currentUser && currentUser.role === 'admin';
                 const sessByStation = {};
                 sessions.forEach(s => sessByStation[s.station_id] = s);
                 const grid = document.getElementById('stations-grid');
@@ -1551,7 +1354,7 @@
                         <div class="text-xs text-slate-500 mb-3">📊 ${st.total_sessions} oturum · ₺${st.total_revenue.toFixed(0)}</div>
                         <div class="flex gap-2">
                             ${actionBtns}
-                            <button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${st.station_type}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="px-3 py-2 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition">✏️</button>
+                            ${isAdmin ? `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${st.station_type}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="px-3 py-2 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition">✏️</button>` : ''}
                         </div>
                     `;
                     grid.appendChild(card);
@@ -1879,8 +1682,7 @@
                 await invoke('start_session', { stationId, customer, rateType: paymentHint, notes, tags: '', extraControllers });
                 closeModal('modal-start');
                 showToast('Oturum başlatıldı!');
-                if (currentTab === 'stations') loadStations();
-                if (currentTab === 'dashboard') loadDashboard();
+                if (currentTab === 'dashboard') { loadDashboard(); loadStations(); }
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
@@ -1903,14 +1705,18 @@
             document.getElementById('end-partial-section').classList.add('hidden');
             document.getElementById('end-partial-list').innerHTML = '';
             document.getElementById('end-payment').value = 'nakit';
-            document.getElementById('end-package').value = '';
-            document.getElementById('end-promo-code').value = '';
-            document.getElementById('end-promo-status').classList.add('hidden');
-            document.getElementById('end-promo-status').innerHTML = '';
-            document.getElementById('end-promo-id').value = '';
+            document.getElementById('end-discount-amount').value = '0';
+            document.getElementById('end-discount-reason').value = '';
+            var limitHint = document.getElementById('end-discount-hint');
+            if (currentUser && currentUser.role === 'admin') {
+                limitHint.textContent = 'Yönetici: sınırsız manuel indirim yetkisi';
+            } else {
+                var lim = 0;
+                try { lim = Number(JSON.parse(currentUser.permissions || '{}').discount_limit) || 0; } catch (e) { lim = 0; }
+                limitHint.textContent = lim > 0 ? 'Manuel indirim limitiniz: ₺' + lim.toFixed(2) + ' (oturum başına)' : 'Manuel indirim yetkiniz yok (yöneticiye başvurun)';
+            }
             setEndTimeMode('auto');
-            await loadEndPackages();
-            await updateEndTotal();
+            updateEndTotal();
             openModal('modal-end');
         }
 
@@ -1971,32 +1777,18 @@
                 }
             } catch (e) { console.error('Ücret hesaplama hatası:', e); return; }
 
-            const pkgSel = document.getElementById('end-package').value;
-            let sessionFee = baseFee, campaignPct = 0;
-            if (pkgSel) {
-                const pkg = endPackages.find(p => p.id === pkgSel);
-                if (pkg) { sessionFee = pkg.price; note = 'Paket: ' + pkg.name; }
-            } else {
-                const dt = endTimeMode === 'manual' && document.getElementById('end-custom-datetime').value
-                    ? new Date(document.getElementById('end-custom-datetime').value) : new Date();
-                campaignPct = await computeCampaignRate(dt);
-                if (campaignPct > 0) {
-                    const d = (baseFee + extraFee) * campaignPct / 100;
-                    sessionFee = baseFee - d;
-                    note = 'Kampanya indirimi (%' + (Math.round(campaignPct * 100) / 100) + ')';
-                }
-            }
-            let total = sessionFee + extraFee + drinkTotal;
-            if (document.getElementById('end-promo-id').value) {
-                const pc = endPromoData;
-                if (pc) {
-                    const d = pc.discount_type === 'percent' ? total * Math.min(pc.discount_value, 100) / 100 : Math.min(pc.discount_value, total);
-                    total = Math.max(0, total - d);
-                }
-            }
+            const sessionFee = baseFee;
+            note = '';
+            const discountInput = parseFloat(document.getElementById('end-discount-amount').value) || 0;
+            const discountReason = document.getElementById('end-discount-reason').value.trim();
+            let total = Math.max(0, sessionFee + extraFee + drinkTotal);
+            const discount = Math.min(discountInput, total);
+            total = Math.max(0, total - discount);
+            if (discount > 0) note = 'Manuel indirim: ₺' + discount.toFixed(2) + (discountReason ? ' (' + discountReason + ')' : '');
             document.getElementById('end-session-fee').textContent = '₺' + sessionFee.toFixed(2);
             document.getElementById('end-extra-fee').textContent = extraControllers > 0 ? '🎮 ' + extraControllers + ' × ₺' + extraFee.toFixed(2) : '₺0.00';
             document.getElementById('end-drink-total').textContent = '₺' + drinkTotal.toFixed(2);
+            document.getElementById('end-discount-display').textContent = discount > 0 ? '-₺' + discount.toFixed(2) : '₺0.00';
             document.getElementById('end-total').textContent = '₺' + total.toFixed(2);
             if (note) document.getElementById('end-session-fee').textContent += ' (' + note + ')';
         }
@@ -2025,15 +1817,23 @@
             if (document.getElementById('end-partial-toggle').checked && partialPayments.length > 0) {
                 partialPaymentsJson = JSON.stringify(partialPayments.filter(p => p.amount > 0));
             }
-            const packageId = document.getElementById('end-package').value || null;
-            const promoCode = document.getElementById('end-promo-id').value ? (document.getElementById('end-promo-code').value || null) : null;
+            const discountAmount = parseFloat(document.getElementById('end-discount-amount').value) || 0;
+            const discountReason = document.getElementById('end-discount-reason').value.trim();
+            if (discountAmount < 0) { showToast('İndirim tutarı negatif olamaz!', 'error'); return; }
+            if (discountAmount > 0 && !discountReason) { showToast('İndirim nedeni zorunludur!', 'error'); return; }
             try {
-                const record = await invoke('end_session', { stationId, paymentMethod: payment, customEndTime, partialPaymentsJson, packageId, promoCode });
+                const record = await invoke('end_session', {
+                    stationId,
+                    paymentMethod: payment,
+                    customEndTime,
+                    partialPaymentsJson,
+                    discountAmount: discountAmount > 0 ? discountAmount : null,
+                    discountReason: discountAmount > 0 ? discountReason : null
+                });
                 closeModal('modal-end');
                 showToast(`Oturum sonlandırıldı! ₺${record.total.toFixed(2)}`);
                 endSessionData = null;
-                if (currentTab === 'dashboard') loadDashboard();
-                if (currentTab === 'stations') loadStations();
+                if (currentTab === 'dashboard') { loadDashboard(); loadStations(); }
                 openReceipt(record.id);
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -2041,18 +1841,18 @@
         // ─── Duraklat / Sürdür ─────────────────────────────
 
         async function pauseSession(stationId) {
-            try { await invoke('pause_session', { stationId }); showToast('Oturum duraklatıldı'); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('pause_session', { stationId }); showToast('Oturum duraklatıldı'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         async function resumeSession(stationId) {
-            try { await invoke('resume_session', { stationId }); showToast('Oturum devam ediyor'); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('resume_session', { stationId }); showToast('Oturum devam ediyor'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Ekstra Kumanda ────────────────────────────────
 
         async function changeExtraControllers(stationId, value) {
             const next = Math.max(0, parseInt(value || '0', 10));
-            try { await invoke('update_session_extra_controllers', { stationId, extraControllers: next }); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_session_extra_controllers', { stationId, extraControllers: next }); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Notlar ─────────────────────────────────────────
@@ -2068,7 +1868,7 @@
             const stationId = document.getElementById('notes-station-id').value;
             const notes = document.getElementById('notes-text').value.trim();
             const tags = document.getElementById('notes-tags').value.trim();
-            try { await invoke('update_session_notes', { stationId, notes, tags }); closeModal('modal-notes'); showToast('Notlar güncellendi'); renderActiveSessions(); if (currentTab === 'stations') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_session_notes', { stationId, notes, tags }); closeModal('modal-notes'); showToast('Notlar güncellendi'); renderActiveSessions(); if (currentTab === 'dashboard') loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── Başlangıç Saati ────────────────────────────────
@@ -2314,73 +2114,8 @@
             try { await invoke('clear_history'); showToast('Geçmiş temizlendi!'); loadHistory(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
-        // ─── İstatistikler ─────────────────────────────────
-
-        function destroyChart(key) { if (charts[key]) { charts[key].destroy(); charts[key] = null; } }
-
-        async function loadStats() {
-            await loadRevenueChart('daily'); await loadTopStations(); await loadTopDrinks(); await loadDurationTrend();
-        }
-
-        async function loadRevenueChart(period) {
-            ['daily', 'weekly', 'monthly'].forEach(p => {
-                const btn = document.getElementById('rev-btn-' + p);
-                if (btn) btn.className = p === period ? 'px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 text-white transition' : 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-600 text-slate-300 transition';
-            });
-            try {
-                const data = await invoke('get_revenue_by_period', { period });
-                destroyChart('revenue');
-                charts.revenue = new Chart(document.getElementById('chart-revenue').getContext('2d'), {
-                    type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Gelir (₺)', data: data.values, backgroundColor: 'rgba(88,166,255,0.5)', borderColor: 'rgb(88,166,255)', borderWidth: 1, borderRadius: 6 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#8b949e', callback: v => '₺' + v }, grid: { color: 'rgba(139,148,158,0.15)' } }, x: { ticks: { color: '#8b949e' }, grid: { display: false } } } }
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        async function loadTopStations() {
-            try {
-                const data = await invoke('get_top_stations');
-                destroyChart('topStations');
-                if (data.names.length === 0) return;
-                const colors = ['#58a6ff', '#a371f7', '#d29922', '#3fb950', '#f85149', '#db61a2', '#388bfd', '#f0883e'];
-                charts.topStations = new Chart(document.getElementById('chart-top-stations').getContext('2d'), {
-                    type: 'doughnut', data: { labels: data.names, datasets: [{ data: data.counts, backgroundColor: colors.slice(0, data.names.length), borderWidth: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e6edf3', padding: 12 } } } }
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        async function loadTopDrinks() {
-            try {
-                const data = await invoke('get_top_drinks');
-                destroyChart('topDrinks');
-                if (data.names.length === 0) return;
-                const colors = ['#d29922', '#3fb950', '#388bfd', '#f85149', '#a371f7', '#db61a2', '#58a6ff', '#f0883e'];
-                charts.topDrinks = new Chart(document.getElementById('chart-top-drinks').getContext('2d'), {
-                    type: 'bar', data: { labels: data.names, datasets: [{ label: 'Adet', data: data.quantities, backgroundColor: colors.slice(0, data.names.length), borderWidth: 0, borderRadius: 6 }] },
-                    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { color: '#8b949e', stepSize: 1 }, grid: { color: 'rgba(139,148,158,0.15)' } }, y: { ticks: { color: '#e6edf3' }, grid: { display: false } } } }
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        async function loadDurationTrend() {
-            try {
-                const data = await invoke('get_duration_trend');
-                destroyChart('durationTrend');
-                charts.durationTrend = new Chart(document.getElementById('chart-duration-trend').getContext('2d'), {
-                    type: 'line', data: { labels: data.labels, datasets: [{ label: 'Ort. Süre (dk)', data: data.values, borderColor: 'rgb(163,113,247)', backgroundColor: 'rgba(163,113,247,0.1)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: 'rgb(163,113,247)' }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#8b949e', callback: v => v + ' dk' }, grid: { color: 'rgba(139,148,158,0.15)' } }, x: { ticks: { color: '#8b949e', maxTicksLimit: 10 }, grid: { display: false } } } }
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        // ─── Dışa Aktarma ──────────────────────────────────
-
         async function exportCSV() { try { const path = await invoke('export_history_csv'); showToast('CSV dışa aktarıldı: ' + path); } catch (e) { showToast('Hata: ' + e, 'error'); } }
         async function exportJSON() { try { const path = await invoke('export_history_json'); showToast('JSON dışa aktarıldı: ' + path); } catch (e) { showToast('Hata: ' + e, 'error'); } }
-
-
-        // ─── Giriş / Oturum ────────────────────────────────
 
         var currentUser = null;
         var currentShift = null;
@@ -2437,327 +2172,18 @@
             document.getElementById('current-role-label').textContent = '-';
         }
 
-        // ─── Kampanya ──────────────────────────────────────
-
-        var campaignsData = [];
-
-        function weekdayNum(d) { return d.getDay(); }
-
-        function dayLabel(days) {
-            if (!days || days === 'all') return 'Her gün';
-            var names = {0:'Paz',1:'Pzt',2:'Sal',3:'Çar',4:'Per',5:'Cum',6:'Cmt'};
-            return days.split(',').map(function(d){ return names[d] || d; }).join(', ');
-        }
-
-        async function loadCampaigns() {
-            try {
-                campaignsData = await invoke('list_campaigns');
-                renderCampaigns();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        function renderCampaigns() {
-            var el = document.getElementById('campaigns-list');
-            if (!campaignsData.length) { el.innerHTML = '<div class="text-center text-slate-500 text-sm py-10">Kampanya bulunamadı</div>'; return; }
-            el.innerHTML = campaignsData.map(function(c) {
-                var on = c.active === 1 || c.active === true;
-                var info = (c.discount_type === 'percent' ? '%' + Number(c.discount_value) : '₺' + Number(c.discount_value).toFixed(2));
-                return '<div class="glass rounded-xl p-4 border ' + (on ? 'border-cyan-500/30' : 'border-slate-700') + '">' +
-                    '<div class="flex items-start justify-between gap-2">' +
-                    '<div class="min-w-0">' +
-                    '<div class="font-semibold truncate">' + escHtml(c.name) + '</div>' +
-                    '<div class="text-xs text-cyan-300 mt-1 font-medium">' + info + ' indirim</div>' +
-                    '<div class="text-xs text-slate-400 mt-1">📅 ' + dayLabel(c.days) + ' • 🕐 ' + escHtml(c.start_time) + ' - ' + escHtml(c.end_time) + '</div>' +
-                    '</div>' +
-                    '<div class="flex flex-col items-end gap-2 shrink-0">' +
-                    '<span class="px-2 py-0.5 rounded-lg text-xs ' + (on ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-700 text-slate-400') + '">' + (on ? 'Aktif' : 'Pasif') + '</span>' +
-                    '<div class="flex gap-1">' +
-                    '<button onclick="openCampaignModal(\'' + c.id + '\')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition">✏️</button>' +
-                    '<button onclick="deleteCampaign(\'' + c.id + '\')" class="px-2 py-1 bg-red-700/50 hover:bg-red-600 rounded-lg text-xs transition">🗑️</button>' +
-                    '</div></div></div></div>';
-            }).join('');
-        }
-
-        function openCampaignModal(id) {
-            document.getElementById('campaign-id').value = id || '';
-            document.getElementById('campaign-modal-title').textContent = id ? 'Kampanya Düzenle' : 'Kampanya Ekle';
-            var c = id ? campaignsData.find(function(x){ return x.id === id; }) : null;
-            document.getElementById('campaign-name').value = c ? c.name : '';
-            document.getElementById('campaign-dtype').value = c ? c.discount_type : 'percent';
-            document.getElementById('campaign-value').value = c ? c.discount_value : '';
-            toggleCampaignPercentLabel();
-            var daysSel = document.getElementById('campaign-days');
-            daysSel.innerHTML = '';
-            ['Her gün','Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'].forEach(function(label, i) {
-                var v = i === 0 ? 'all' : String(i - 1);
-                var o = document.createElement('option');
-                o.value = v; o.textContent = label; daysSel.appendChild(o);
-            });
-            if (c) {
-                var d = c.days || 'all';
-                if (![...daysSel.options].some(function(o){ return o.value === d; })) {
-                    var o = document.createElement('option'); o.value = d; o.textContent = dayLabel(d); daysSel.appendChild(o);
-                }
-                daysSel.value = d;
-                document.getElementById('campaign-start-time').value = c.start_time || '00:00';
-                document.getElementById('campaign-end-time').value = c.end_time || '23:59';
-                document.getElementById('campaign-active').checked = c.active === 1 || c.active === true;
-            } else {
-                daysSel.value = 'all';
-                document.getElementById('campaign-start-time').value = '00:00';
-                document.getElementById('campaign-end-time').value = '23:59';
-                document.getElementById('campaign-active').checked = true;
-            }
-            openModal('modal-campaign');
-        }
-
-        function toggleCampaignPercentLabel() {
-            document.getElementById('campaign-value-label').textContent =
-                document.getElementById('campaign-dtype').value === 'percent' ? 'İndirim (%)' : 'İndirim (₺)';
-        }
-
-        async function saveCampaign() {
-            var id = document.getElementById('campaign-id').value;
-            var name = document.getElementById('campaign-name').value.trim();
-            var dtype = document.getElementById('campaign-dtype').value;
-            var value = parseFloat(document.getElementById('campaign-value').value) || 0;
-            var days = document.getElementById('campaign-days').value;
-            var st = document.getElementById('campaign-start-time').value;
-            var et = document.getElementById('campaign-end-time').value;
-            if (!name) { showToast('Kampanya adı gerekli!', 'error'); return; }
-            if (value <= 0) { showToast('İndirim değeri 0\'dan büyük olmalı!', 'error'); return; }
-            try {
-                if (id) {
-                    await invoke('update_campaign', { campaignId: id, name: name, discountType: dtype, discountValue: value, days: days, startTime: st, endTime: et, active: document.getElementById('campaign-active').checked });
-                } else {
-                    await invoke('add_campaign', { name: name, discountType: dtype, discountValue: value, days: days, startTime: st, endTime: et });
-                }
-                showToast('Kampanya kaydedildi!');
-                closeModal('modal-campaign');
-                loadCampaigns();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        async function deleteCampaign(id) {
-            if (!confirm('Bu kampanya silinsin mi?')) return;
-            try { await invoke('remove_campaign', { campaignId: id }); showToast('Kampanya silindi'); loadCampaigns(); }
-            catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        // ─── Paketler ──────────────────────────────────────
-
-        var packagesData = [];
-
-        async function loadPackages() {
-            try {
-                packagesData = await invoke('list_packages');
-                renderPackages();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        function renderPackages() {
-            var el = document.getElementById('packages-list');
-            if (!packagesData.length) { el.innerHTML = '<div class="text-center text-slate-500 text-sm py-10">Paket bulunamadı</div>'; return; }
-            el.innerHTML = packagesData.map(function(p) {
-                var on = p.active === 1 || p.active === true;
-                return '<div class="glass rounded-xl p-4 border ' + (on ? 'border-emerald-500/30' : 'border-slate-700') + '">' +
-                    '<div class="flex items-start justify-between gap-2">' +
-                    '<div class="min-w-0">' +
-                    '<div class="font-semibold truncate">' + escHtml(p.name) + '</div>' +
-                    '<div class="text-sm text-emerald-300 mt-1 font-bold">₺' + Number(p.price).toFixed(2) + '</div>' +
-                    '<div class="text-xs text-slate-400 mt-1">⏱️ ' + p.hours + ' saat' + (p.description ? ' • ' + escHtml(p.description) : '') + '</div>' +
-                    '</div>' +
-                    '<div class="flex flex-col items-end gap-2 shrink-0">' +
-                    '<span class="px-2 py-0.5 rounded-lg text-xs ' + (on ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-700 text-slate-400') + '">' + (on ? 'Aktif' : 'Pasif') + '</span>' +
-                    '<div class="flex gap-1">' +
-                    '<button onclick="openPackageModal(\'' + p.id + '\')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition">✏️</button>' +
-                    '<button onclick="deletePackage(\'' + p.id + '\')" class="px-2 py-1 bg-red-700/50 hover:bg-red-600 rounded-lg text-xs transition">🗑️</button>' +
-                    '</div></div></div></div>';
-            }).join('');
-        }
-
-        function openPackageModal(id) {
-            document.getElementById('package-id').value = id || '';
-            document.getElementById('package-modal-title').textContent = id ? 'Paket Düzenle' : 'Paket Ekle';
-            var p = id ? packagesData.find(function(x){ return x.id === id; }) : null;
-            document.getElementById('package-name').value = p ? p.name : '';
-            document.getElementById('package-hours').value = p ? p.hours : '';
-            document.getElementById('package-price').value = p ? p.price : '';
-            document.getElementById('package-desc').value = p ? (p.description || '') : '';
-            document.getElementById('package-active').checked = p ? (p.active === 1 || p.active === true) : true;
-            openModal('modal-package');
-        }
-
-        async function savePackage() {
-            var id = document.getElementById('package-id').value;
-            var name = document.getElementById('package-name').value.trim();
-            var hours = parseInt(document.getElementById('package-hours').value) || 0;
-            var price = parseFloat(document.getElementById('package-price').value) || 0;
-            var desc = document.getElementById('package-desc').value.trim();
-            if (!name) { showToast('Paket adı gerekli!', 'error'); return; }
-            if (hours <= 0) { showToast('Saat 0\'dan büyük olmalı!', 'error'); return; }
-            if (price <= 0) { showToast('Fiyat 0\'dan büyük olmalı!', 'error'); return; }
-            try {
-                if (id) {
-                    await invoke('update_package', { packageId: id, name: name, hours: hours, price: price, description: desc, active: document.getElementById('package-active').checked });
-                } else {
-                    await invoke('add_package', { name: name, hours: hours, price: price, description: desc });
-                }
-                showToast('Paket kaydedildi!');
-                closeModal('modal-package');
-                loadPackages();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        async function deletePackage(id) {
-            if (!confirm('Bu paket silinsin mi?')) return;
-            try { await invoke('remove_package', { packageId: id }); showToast('Paket silindi'); loadPackages(); }
-            catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        // ─── Promo Kodları ─────────────────────────────────
-
-        var promosData = [];
-
-        async function loadPromos() {
-            try {
-                promosData = await invoke('list_promo_codes');
-                renderPromos();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        function renderPromos() {
-            var el = document.getElementById('promos-list');
-            if (!promosData.length) { el.innerHTML = '<div class="text-center text-slate-500 text-sm py-10">Promo kod bulunamadı</div>'; return; }
-            el.innerHTML = promosData.map(function(c) {
-                var on = c.active === 1 || c.active === true;
-                var info = (c.discount_type === 'percent' ? '%' + Number(c.discount_value) : '₺' + Number(c.discount_value).toFixed(2));
-                var limit = c.max_uses > 0 ? ' • ' + c.used_count + '/' + c.max_uses + ' kullanım' : ' • sınırsız';
-                return '<div class="glass rounded-xl p-4 border ' + (on ? 'border-violet-500/30' : 'border-slate-700') + '">' +
-                    '<div class="flex items-start justify-between gap-2">' +
-                    '<div class="min-w-0">' +
-                    '<div class="font-bold text-violet-300 tracking-wider">' + escHtml(c.code) + '</div>' +
-                    '<div class="text-xs text-slate-300 mt-1 font-medium">' + info + ' indirim' + limit + '</div>' +
-                    '<div class="text-xs text-slate-400 mt-1">' + (c.valid_until ? 'Son: ' + new Date(c.valid_until).toLocaleString('tr-TR') : 'Süresiz') + '</div>' +
-                    '</div>' +
-                    '<div class="flex flex-col items-end gap-2 shrink-0">' +
-                    '<span class="px-2 py-0.5 rounded-lg text-xs ' + (on ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-700 text-slate-400') + '">' + (on ? 'Aktif' : 'Pasif') + '</span>' +
-                    '<div class="flex gap-1">' +
-                    '<button onclick="openPromoModal(\'' + c.id + '\')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition">✏️</button>' +
-                    '<button onclick="deletePromo(\'' + c.id + '\')" class="px-2 py-1 bg-red-700/50 hover:bg-red-600 rounded-lg text-xs transition">🗑️</button>' +
-                    '</div></div></div></div>';
-            }).join('');
-        }
-
-        function openPromoModal(id) {
-            document.getElementById('promo-id').value = id || '';
-            document.getElementById('promo-modal-title').textContent = id ? 'Promo Kod Düzenle' : 'Promo Kod Ekle';
-            var c = id ? promosData.find(function(x){ return x.id === id; }) : null;
-            document.getElementById('promo-code').value = c ? c.code : '';
-            document.getElementById('promo-dtype').value = c ? c.discount_type : 'percent';
-            document.getElementById('promo-value').value = c ? c.discount_value : '';
-            document.getElementById('promo-max-uses').value = c ? c.max_uses : 0;
-            document.getElementById('promo-valid-until').value = c && c.valid_until ? new Date(c.valid_until).toISOString().slice(0, 16) : '';
-            document.getElementById('promo-active').checked = c ? (c.active === 1 || c.active === true) : true;
-            var info = document.getElementById('promo-usage-info');
-            if (c && c.used_count > 0) { info.textContent = 'Kullanım: ' + c.used_count + ' kez'; info.classList.remove('hidden'); }
-            else { info.classList.add('hidden'); }
-            openModal('modal-promo');
-        }
-
-        async function savePromo() {
-            var id = document.getElementById('promo-id').value;
-            var code = document.getElementById('promo-code').value.trim();
-            var dtype = document.getElementById('promo-dtype').value;
-            var value = parseFloat(document.getElementById('promo-value').value) || 0;
-            var maxUses = parseInt(document.getElementById('promo-max-uses').value) || 0;
-            var validUntil = document.getElementById('promo-valid-until').value ? new Date(document.getElementById('promo-valid-until').value).toISOString() : null;
-            if (code.length < 2) { showToast('Kod en az 2 karakter olmalı!', 'error'); return; }
-            if (value <= 0) { showToast('İndirim değeri 0\'dan büyük olmalı!', 'error'); return; }
-            try {
-                if (id) {
-                    await invoke('update_promo_code', { promoId: id, code: code, discountType: dtype, discountValue: value, maxUses: maxUses, validUntil: validUntil, active: document.getElementById('promo-active').checked });
-                } else {
-                    await invoke('add_promo_code', { code: code, discountType: dtype, discountValue: value, maxUses: maxUses, validUntil: validUntil });
-                }
-                showToast('Promo kod kaydedildi!');
-                closeModal('modal-promo');
-                loadPromos();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        async function deletePromo(id) {
-            if (!confirm('Bu promo kod silinsin mi?')) return;
-            try { await invoke('remove_promo_code', { promoId: id }); showToast('Promo kod silindi'); loadPromos(); }
-            catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        // ─── Oturum Sonu: Paket & Promo ────────────────────
-
-        async function loadEndPackages() {
-            try {
-                endPackages = await invoke('list_packages');
-                var sel = document.getElementById('end-package');
-                sel.innerHTML = '<option value="">-- Paket yok (normal ücret) --</option>' +
-                    endPackages.filter(function(p){ return p.active === 1 || p.active === true; })
-                        .map(function(p){ return '<option value="' + p.id + '">' + escHtml(p.name) + ' (₺' + Number(p.price).toFixed(2) + ' / ' + p.hours + ' saat)</option>'; }).join('');
-            } catch (e) { console.error(e); }
-        }
-
-        async function computeCampaignRate(dt) {
-            var pct = 0;
-            try {
-                var campaigns = await invoke('list_campaigns');
-                var wd = dt.getDay();
-                var hm = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
-                campaigns.filter(function(c){ return c.active === 1 || c.active === true; }).forEach(function(c) {
-                    var dayOk = c.days === 'all' || c.days.split(',').indexOf(String(wd)) >= 0;
-                    if (!dayOk) return;
-                    var inWindow = (!c.start_time || hm >= c.start_time) && (!c.end_time || hm <= c.end_time);
-                    if (!inWindow) return;
-                    pct += c.discount_type === 'percent' ? Math.min(Number(c.discount_value), 100) : Number(c.discount_value);
-                });
-            } catch (e) { console.error(e); }
-            return pct;
-        }
-
-        async function validateEndPromo() {
-            var code = document.getElementById('end-promo-code').value.trim();
-            var status = document.getElementById('end-promo-status');
-            if (!code) {
-                document.getElementById('end-promo-id').value = '';
-                endPromoData = null;
-                status.classList.add('hidden');
-                status.innerHTML = '';
-                updateEndTotal();
-                return;
-            }
-            try {
-                endPromoData = await invoke('validate_promo_code', { code: code });
-                document.getElementById('end-promo-id').value = endPromoData.id;
-                var info = endPromoData.discount_type === 'percent' ? '%' + Number(endPromoData.discount_value) : '₺' + Number(endPromoData.discount_value).toFixed(2);
-                status.classList.remove('hidden');
-                status.innerHTML = '<span class="text-emerald-400">✔ Kod geçerli (' + info + ' indirim)</span>';
-                updateEndTotal();
-            } catch (e) {
-                document.getElementById('end-promo-id').value = '';
-                endPromoData = null;
-                status.classList.remove('hidden');
-                status.innerHTML = '<span class="text-red-400">✖ ' + escHtml(String(e)) + '</span>';
-                updateEndTotal();
-            }
-        }
-
         function applyRoleGating() {
             var isAdmin = currentUser && currentUser.role === 'admin';
             document.getElementById('add-user-btn').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-personel').classList.toggle('hidden', !isAdmin);
+            document.getElementById('tab-btn-logs').classList.toggle('hidden', !isAdmin);
             document.getElementById('low-stock-setting').classList.toggle('hidden', !isAdmin);
             document.getElementById('add-drink-btn').classList.toggle('hidden', !isAdmin);
-            document.getElementById('add-campaign-btn').classList.toggle('hidden', !isAdmin);
-            document.getElementById('add-package-btn').classList.toggle('hidden', !isAdmin);
-            document.getElementById('add-promo-btn').classList.toggle('hidden', !isAdmin);
+            document.getElementById('add-station-btn').classList.toggle('hidden', !isAdmin);
+            document.getElementById('web-card').classList.toggle('hidden', !isAdmin);
+            document.getElementById('clear-history-btn').classList.toggle('hidden', !isAdmin);
             if (!isAdmin && currentTab === 'personel') switchTab('dashboard');
+            if (!isAdmin && currentTab === 'logs') switchTab('dashboard');
             if (currentTab === 'drinks') loadDrinks();
         }
 
@@ -2844,7 +2270,7 @@
                     var isSelf = currentUser && u.id === currentUser.id;
                     return '<tr class="border-t border-slate-700/40">' +
                         '<td class="p-3"><div class="font-medium">' + escHtml(u.full_name || u.username) + '</div><div class="text-xs text-slate-500">@' + escHtml(u.username) + '</div></td>' +
-                        '<td class="p-3"><span class="px-2 py-0.5 rounded-lg text-xs font-medium ' + (u.role === 'admin' ? 'bg-purple-600/30 text-purple-300' : 'bg-slate-600/30 text-slate-300') + '">' + (u.role === 'admin' ? 'Yönetici' : 'Çalışan') + '</span></td>' +
+                        '<td class="p-3"><span class="px-2 py-0.5 rounded-lg text-xs font-medium ' + (u.role === 'admin' ? 'bg-purple-600/30 text-purple-300' : 'bg-slate-600/30 text-slate-300') + '">' + (u.role === 'admin' ? 'Yönetici' : 'Çalışan') + '</span>' + (u.role !== 'admin' ? '<div class="text-xs text-slate-500 mt-1">İndirim: ₺' + userDiscountLimit(u).toFixed(2) + '/oturum</div>' : '') + '</td>' +
                         '<td class="p-3"><span class="px-2 py-0.5 rounded-lg text-xs font-medium ' + (u.active ? 'bg-emerald-600/30 text-emerald-300' : 'bg-red-600/30 text-red-300') + '">' + (u.active ? 'Aktif' : 'Pasif') + '</span></td>' +
                         '<td class="p-3"><div class="flex gap-2">' +
                         '<button onclick="editUser(\'' + u.id + '\')" class="px-2 py-1 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs" title="Düzenle">✏️</button>' +
@@ -2856,6 +2282,13 @@
             }
         }
 
+        function userDiscountLimit(u) {
+            try {
+                var p = (u && u.permissions) ? JSON.parse(u.permissions) : {};
+                return p.discount_limit ? Number(p.discount_limit) : 0;
+            } catch (e) { return 0; }
+        }
+
         function openUserModal() {
             document.getElementById('user-modal-title').textContent = 'Kullanıcı Ekle';
             document.getElementById('user-id').value = '';
@@ -2863,6 +2296,7 @@
             document.getElementById('user-username').value = '';
             document.getElementById('user-username').disabled = false;
             document.getElementById('user-role').value = 'calisan';
+            document.getElementById('user-discount-limit').value = '0';
             document.getElementById('user-pass-label').textContent = 'Şifre';
             document.getElementById('user-password').value = '';
             openModal('modal-user');
@@ -2877,6 +2311,7 @@
             document.getElementById('user-username').value = u.username;
             document.getElementById('user-username').disabled = true;
             document.getElementById('user-role').value = u.role;
+            document.getElementById('user-discount-limit').value = userDiscountLimit(u);
             document.getElementById('user-pass-label').textContent = 'Yeni Şifre (değiştirmek için)';
             document.getElementById('user-password').value = '';
             openModal('modal-user');
@@ -2888,16 +2323,18 @@
             var username = document.getElementById('user-username').value.trim();
             var role = document.getElementById('user-role').value;
             var pass = document.getElementById('user-password').value;
+            var discountLimit = parseFloat(document.getElementById('user-discount-limit').value) || 0;
+            if (discountLimit < 0) { showToast('İndirim limiti negatif olamaz!', 'error'); return; }
             if (!name) { showToast('Ad Soyad gerekli', 'error'); return; }
             try {
                 if (id) {
                     var u = lastUsers.find(function (x) { return x.id === id; });
-                    await invoke('update_user', { userId: id, fullName: name, role: role, active: u ? u.active : true });
+                    await invoke('update_user', { userId: id, fullName: name, role: role, active: u ? u.active : true, discountLimit: discountLimit });
                     if (pass) await invoke('reset_user_password', { userId: id, newPassword: pass });
                     showToast('Kullanıcı güncellendi');
                 } else {
                     if (!username || !pass) { showToast('Kullanıcı adı ve şifre gerekli', 'error'); return; }
-                    await invoke('add_user', { username: username, password: pass, fullName: name, role: role });
+                    await invoke('add_user', { username: username, password: pass, fullName: name, role: role, discountLimit: discountLimit });
                     showToast('Kullanıcı eklendi');
                 }
                 closeModal('modal-user');
@@ -3060,7 +2497,7 @@
                 '<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">' +
                 '<div class="glass rounded-2xl p-5"><div class="text-slate-400 text-sm font-medium">Oturum</div><div class="text-3xl font-bold text-cyan-400 mt-1">' + r.sessions + '</div><div class="text-slate-500 text-xs mt-1">Toplam oturum</div></div>' +
                 '<div class="glass rounded-2xl p-5"><div class="text-slate-400 text-sm font-medium">Toplam Gelir</div><div class="text-3xl font-bold text-emerald-400 mt-1">₺' + Number(r.total_revenue).toFixed(2) + '</div><div class="text-slate-500 text-xs mt-1">İndirimler dahil</div></div>' +
-                '<div class="glass rounded-2xl p-5"><div class="text-slate-400 text-sm font-medium">İndirim</div><div class="text-3xl font-bold text-amber-400 mt-1">-₺' + Number(r.total_discount).toFixed(2) + '</div><div class="text-slate-500 text-xs mt-1">Kampanya/Promo/Paket</div></div>' +
+                '<div class="glass rounded-2xl p-5"><div class="text-slate-400 text-sm font-medium">İndirim</div><div class="text-3xl font-bold text-amber-400 mt-1">-₺' + Number(r.total_discount).toFixed(2) + '</div><div class="text-slate-500 text-xs mt-1">Manuel indirim toplamı</div></div>' +
                 '<div class="glass rounded-2xl p-5"><div class="text-slate-400 text-sm font-medium">Ort. Süre</div><div class="text-3xl font-bold text-purple-400 mt-1">' + Math.round(r.avg_duration_minutes) + ' dk</div><div class="text-slate-500 text-xs mt-1">Oturum başına</div></div>' +
                 '</div>' +
                 '<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">' +
@@ -3133,7 +2570,7 @@
         document.addEventListener('DOMContentLoaded', () => { initAuth(); });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-shift', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-campaign', 'modal-package', 'modal-promo', 'modal-receipt'].forEach(id => closeModal(id));
+                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-shift', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt'].forEach(id => closeModal(id));
             }
             if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
         });

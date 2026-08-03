@@ -73,8 +73,6 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
     let today_rev = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1", params![today]);
     let today_drinks = scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE date(order_time) = ?1", params![today]);
     let today_sessions = scalar_i64(conn, "SELECT COUNT(*) FROM session_history WHERE date(end_time) = ?1", params![today]);
-    let campaigns_active = scalar_i64(conn, "SELECT COUNT(*) FROM campaigns WHERE active = 1", []);
-    let packages_active = scalar_i64(conn, "SELECT COUNT(*) FROM packages WHERE active = 1", []);
     let low_threshold: i64 = get_setting_value(conn, "low_stock_threshold").and_then(|v| v.parse().ok()).unwrap_or(5);
 
     let mut stations: Vec<serde_json::Value> = Vec::new();
@@ -180,8 +178,6 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
         "live_estimate": live_estimate,
         "low_stock_threshold": low_threshold,
         "low_stock": low_stock,
-        "campaigns_active": campaigns_active,
-        "packages_active": packages_active,
         "stations": stations,
         "sessions": sessions,
     })
