@@ -39,9 +39,24 @@ pub fn add_station(name: String, group_name: String, state: State<AppState>) -> 
 pub fn update_station(station_id: String, name: String, group_name: String, state: State<AppState>) -> Result<(), String> {
     crate::commands::auth::require_admin(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("UPDATE stations SET name = ?1, group_name = ?2 WHERE id = ?3", params![name, group_name, station_id]).map_err(|e| e.to_string())?;
-    let old: Option<String> = conn.query_row("SELECT station_name FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).ok();
-    if let Some(o) = old { if o != name { conn.execute("UPDATE active_sessions SET station_name = ?1 WHERE station_id = ?2", params![name, station_id]).ok(); } }
+    let old_name: Option<String> = conn.query_row("SELECT name FROM stations WHERE id = ?1", params![station_id], |r| r.get(0)).ok();
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        conn.execute("UPDATE stations SET name = ?1, group_name = ?2 WHERE id = ?3", params![name, group_name, station_id]).map_err(|e| e.to_string())?;
+        if let Some(old) = old_name {
+            if old != name {
+                conn.execute("UPDATE active_sessions SET station_name = ?1 WHERE station_id = ?2", params![name, station_id]).map_err(|e| e.to_string())?;
+                conn.execute("UPDATE session_history SET station_name = ?1 WHERE station_name = ?2", params![name, old]).map_err(|e| e.to_string())?;
+                conn.execute("UPDATE drink_orders SET station_name = ?1 WHERE station_name = ?2", params![name, old]).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "update_station", "stations", &name);
     Ok(())
 }

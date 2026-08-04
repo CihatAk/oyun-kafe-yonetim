@@ -593,6 +593,28 @@
         </div>
     </div>
 
+    <!-- İlk Giriş Şifre Değiştir -->
+    <div id="modal-first-pass" class="hidden fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[60]">
+        <div class="glass rounded-2xl p-8 w-[420px] slide-in border border-amber-500/40">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold">🔐 Şifrenizi Değiştirin</h3>
+            </div>
+            <p class="text-sm text-slate-300 mb-4">Güvenlik için ilk girişte varsayılan şifrenizi değiştirmeniz gerekiyor. Yeni şifre en az 6 karakter olmalı.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Yeni Şifre</label>
+                    <input type="password" id="first-pass-new" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Yeni Şifre (Tekrar)</label>
+                    <input type="password" id="first-pass-confirm" class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500" onkeydown="if(event.key==='Enter')saveFirstPassword()">
+                </div>
+                <p id="first-pass-error" class="hidden text-red-400 text-sm"></p>
+                <button onclick="saveFirstPassword()" class="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-xl font-medium transition">Şifreyi Kaydet</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Oturum Fişi -->
     <div id="modal-receipt" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-receipt')">
         <div class="glass rounded-2xl p-8 w-[380px] max-h-[92vh] overflow-y-auto slide-in">
@@ -2167,6 +2189,27 @@
             document.getElementById('current-role-label').textContent = currentUser.role === 'admin' ? 'Yönetici' : 'Çalışan';
             applyRoleGating();
             switchTab('dashboard');
+            if (currentUser && currentUser.must_change_password) {
+                document.getElementById('modal-first-pass').classList.remove('hidden');
+            }
+        }
+
+        async function saveFirstPassword() {
+            var nw = document.getElementById('first-pass-new').value;
+            var cf = document.getElementById('first-pass-confirm').value;
+            var errEl = document.getElementById('first-pass-error');
+            if (!nw || nw.length < 6) { errEl.textContent = 'Şifre en az 6 karakter olmalı.'; errEl.classList.remove('hidden'); return; }
+            if (nw !== cf) { errEl.textContent = 'Şifreler eşleşmiyor.'; errEl.classList.remove('hidden'); return; }
+            try {
+                await invoke('force_change_password', { newPassword: nw });
+                currentUser.must_change_password = false;
+                errEl.classList.add('hidden');
+                showToast('Şifreniz güncellendi');
+                document.getElementById('modal-first-pass').classList.add('hidden');
+            } catch (e) {
+                errEl.textContent = String(e);
+                errEl.classList.remove('hidden');
+            }
         }
 
         async function doLogin() {

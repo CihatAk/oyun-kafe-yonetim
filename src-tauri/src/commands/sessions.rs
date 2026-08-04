@@ -5,7 +5,22 @@ use uuid::Uuid;
 
 use crate::db::AppState;
 use crate::models::*;
-use crate::commands::auth::log_audit_conn;
+use crate::commands::auth::{log_audit_conn, require_login};
+
+fn parse_partials(pp: Option<&str>) -> Result<Vec<(String, f64)>, String> {
+    match pp {
+        None => Ok(Vec::new()),
+        Some(s) => {
+            let vals: Vec<serde_json::Value> = serde_json::from_str(s).map_err(|e| format!("Kısmi ödeme verisi geçersiz: {}", e))?;
+            vals.into_iter().map(|v| {
+                let method = v.get("method").and_then(|m| m.as_str()).ok_or_else(|| "Kısmi ödeme 'method' alanı eksik".to_string())?.to_string();
+                let amount = v.get("amount").and_then(|a| a.as_f64()).ok_or_else(|| "Kısmi ödeme 'amount' alanı geçersiz".to_string())?;
+                if amount <= 0.0 { return Err("Kısmi ödeme tutarı 0'dan büyük olmalı!".into()); }
+                Ok((method, amount))
+            }).collect()
+        }
+    }
+}
 
 fn map_active(row: &rusqlite::Row) -> rusqlite::Result<ActiveSession> {
     Ok(ActiveSession {
@@ -18,6 +33,7 @@ fn map_active(row: &rusqlite::Row) -> rusqlite::Result<ActiveSession> {
 
 #[tauri::command]
 pub fn start_session(station_id: String, customer: String, rate_type: String, notes: String, tags: String, extra_controllers: Option<i64>, state: State<AppState>) -> Result<ActiveSession, String> {
+    require_login(&state)?;
     let extra = extra_controllers.unwrap_or(0).max(0);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let (status, st_name): (String, String) = conn.query_row("SELECT status, name FROM stations WHERE id = ?1", params![station_id], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| "İstasyon bulunamadı")?;
@@ -36,6 +52,7 @@ pub fn start_session(station_id: String, customer: String, rate_type: String, no
 
 #[tauri::command]
 pub fn pause_session(station_id: String, state: State<AppState>) -> Result<(), String> {
+    require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let p: Option<String> = conn.query_row("SELECT paused_at FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).map_err(|_| "Oturum bulunamadı")?;
     if p.is_some() { return Err("Zaten duraklatılmış".into()); }
@@ -46,6 +63,7 @@ pub fn pause_session(station_id: String, state: State<AppState>) -> Result<(), S
 
 #[tauri::command]
 pub fn resume_session(station_id: String, state: State<AppState>) -> Result<(), String> {
+    require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let p: Option<String> = conn.query_row("SELECT paused_at FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).map_err(|_| "Oturum bulunamadı")?;
     match p {
@@ -63,6 +81,7 @@ pub fn resume_session(station_id: String, state: State<AppState>) -> Result<(), 
 
 #[tauri::command]
 pub fn update_session_notes(station_id: String, notes: String, tags: String, state: State<AppState>) -> Result<(), String> {
+    require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET notes = ?1, tags = ?2 WHERE station_id = ?3", params![notes, tags, station_id]).map_err(|_| "Oturum bulunamadı")?;
     log_audit_conn(&conn, &state, "update_session_notes", "sessions", &station_id);
@@ -79,6 +98,7 @@ pub fn get_active_sessions(state: State<AppState>) -> Result<Vec<ActiveSession>,
 
 #[tauri::command]
 pub fn update_session_start_time(station_id: String, new_start_time: String, state: State<AppState>) -> Result<ActiveSession, String> {
+    require_login(&state)?;
     let _p: DateTime<Local> = DateTime::parse_from_rfc3339(&new_start_time).map_err(|e| format!("Geçersiz tarih: {}", e))?.with_timezone(&Local);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET start_time = ?1 WHERE station_id = ?2", params![new_start_time, station_id]).map_err(|_| "Oturum bulunamadı")?;
@@ -89,6 +109,7 @@ pub fn update_session_start_time(station_id: String, new_start_time: String, sta
 
 #[tauri::command]
 pub fn update_session_extra_controllers(station_id: String, extra_controllers: i64, state: State<AppState>) -> Result<(), String> {
+    require_login(&state)?;
     let extra = extra_controllers.max(0);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET extra_controllers = ?1 WHERE station_id = ?2", params![extra, station_id]).map_err(|_| "Oturum bulunamadı")?;
@@ -98,6 +119,7 @@ pub fn update_session_extra_controllers(station_id: String, extra_controllers: i
 
 #[tauri::command]
 pub fn end_session(station_id: String, payment_method: String, custom_end_time: Option<String>, partial_payments_json: Option<String>, discount_amount: Option<f64>, discount_reason: Option<String>, state: State<AppState>) -> Result<SessionRecord, String> {
+    require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
 
     let row = conn.query_row(
@@ -164,10 +186,8 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
         };
     }
 
-    let (total_final, final_pm) = if let Some(ref pp) = partial_payments_json {
-        let partials: Vec<(String, f64)> = serde_json::from_str(pp).unwrap_or_default();
-        let ps: f64 = partials.iter().map(|(_, a)| a).sum();
-        let _rem = (total - ps).max(0.0);
+    let partials = parse_partials(partial_payments_json.as_deref())?;
+    let (total_final, final_pm) = if partial_payments_json.is_some() {
         let desc = partials.iter().map(|(m, a)| format!("{}:{:.2}", m, a)).collect::<Vec<_>>().join(",");
         (total, format!("{}+kısmi:{}", payment_method, desc))
     } else {
@@ -181,12 +201,9 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
         conn.execute("DELETE FROM active_sessions WHERE station_id = ?1", params![station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE stations SET status = 'idle' WHERE id = ?1", params![station_id]).map_err(|e| e.to_string())?;
 
-        if let Some(ref pp) = partial_payments_json {
-            let partials: Vec<(String, f64)> = serde_json::from_str(pp).unwrap_or_default();
-            for (m, a) in partials {
-                conn.execute("INSERT INTO partial_payments (id, session_id, payment_method, amount, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![Uuid::new_v4().to_string(), station_id, m, a, Local::now().to_rfc3339()]).map_err(|e| e.to_string())?;
-            }
+        for (m, a) in &partials {
+            conn.execute("INSERT INTO partial_payments (id, session_id, payment_method, amount, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![Uuid::new_v4().to_string(), station_id, m, a, Local::now().to_rfc3339()]).map_err(|e| e.to_string())?;
         }
 
         let hist_notes = if !fee_note.is_empty() { fee_note.clone() } else { notes.clone() };

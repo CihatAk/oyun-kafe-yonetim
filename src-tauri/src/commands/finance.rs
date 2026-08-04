@@ -148,9 +148,9 @@ pub fn get_day_end_report(date: Option<String>, state: State<AppState>) -> Resul
         "SELECT COUNT(*), COALESCE(SUM(total),0), COALESCE(SUM(discount),0), COALESCE(SUM(drink_total),0) FROM session_history WHERE date(end_time) = ?1",
         params![d], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).map_err(|e| e.to_string())?;
 
-    let cash_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method LIKE '%nakit%'", params![d], |r| r.get(0)).unwrap_or(0.0);
-    let card_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method LIKE '%kart%'", params![d], |r| r.get(0)).unwrap_or(0.0);
-    let other_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method NOT LIKE '%nakit%' AND payment_method NOT LIKE '%kart%'", params![d], |r| r.get(0)).unwrap_or(0.0);
+    let cash_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method LIKE 'nakit%'", params![d], |r| r.get(0)).unwrap_or(0.0);
+    let card_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method LIKE 'kart%'", params![d], |r| r.get(0)).unwrap_or(0.0);
+    let other_revenue: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM session_history WHERE date(end_time) = ?1 AND payment_method NOT LIKE 'nakit%' AND payment_method NOT LIKE 'kart%'", params![d], |r| r.get(0)).unwrap_or(0.0);
 
     let (partial_cash, partial_card): (f64, f64) = conn.query_row(
         "SELECT COALESCE(SUM(CASE WHEN payment_method LIKE '%nakit%' THEN amount ELSE 0 END),0), COALESCE(SUM(CASE WHEN payment_method LIKE '%kart%' THEN amount ELSE 0 END),0) FROM partial_payments WHERE date(created_at) = ?1",

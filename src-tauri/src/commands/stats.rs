@@ -3,6 +3,7 @@ use rusqlite::params;
 use tauri::State;
 
 use crate::db::AppState;
+use crate::queries::session_fee;
 
 #[tauri::command]
 pub fn get_dashboard_stats(state: State<AppState>) -> Result<serde_json::Value, String> {
@@ -31,34 +32,24 @@ pub fn get_dashboard_stats(state: State<AppState>) -> Result<serde_json::Value, 
 }
 
 #[tauri::command]
-pub fn calculate_live_fee(station_id: String, payment_method: String, state: State<AppState>) -> Result<serde_json::Value, String> {
+pub fn calculate_live_fee(station_id: String, _payment_method: String, state: State<AppState>) -> Result<serde_json::Value, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let (start_str, paused_at, total_paused, st_type, extra_controllers): (String, Option<String>, i64, String, i64) = conn.query_row(
-        "SELECT a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(s.station_type,'standard'), COALESCE(a.extra_controllers,0) FROM active_sessions a LEFT JOIN stations s ON a.station_id=s.id WHERE a.station_id=?1",
-        params![station_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+    let (start_str, paused_at, total_paused, extra_controllers, rate_type, st_type): (String, Option<String>, i64, i64, String, String) = conn.query_row(
+        "SELECT a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(a.extra_controllers,0), COALESCE(a.rate_type,'nakit'), COALESCE(s.station_type,'standard') FROM active_sessions a LEFT JOIN stations s ON a.station_id=s.id WHERE a.station_id=?1",
+        params![station_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
     ).map_err(|_| "Oturum bulunamadı")?;
-    let start: chrono::DateTime<Local> = chrono::DateTime::parse_from_rfc3339(&start_str).map_err(|e| e.to_string())?.with_timezone(&Local);
     let now = Local::now();
+    let start: chrono::DateTime<Local> = chrono::DateTime::parse_from_rfc3339(&start_str).map_err(|e| e.to_string())?.with_timezone(&Local);
     let total_secs = now.signed_duration_since(start).num_seconds().max(0);
-    let is_paused = paused_at.is_some();
-    let mut eff_secs = total_secs;
-    let mut paused_remaining = 0i64;
-    if let Some(ref p) = paused_at {
-        if let Ok(pd) = chrono::DateTime::parse_from_rfc3339(p) {
-            paused_remaining = now.signed_duration_since(pd.with_timezone(&Local)).num_seconds().max(0);
-            eff_secs = eff_secs.saturating_sub(paused_remaining);
-        }
-    }
-    eff_secs = eff_secs.saturating_sub(total_paused);
-    let dur_mins = (eff_secs / 60).max(0);
-    let dur_secs = eff_secs.max(0) % 60;
+    let (dur_mins, dur_secs, fee, extra_fee, is_paused) =
+        session_fee(&conn, &station_id, &rate_type, &start_str, paused_at.as_deref(), total_paused, extra_controllers);
     let pricing = AppState::load_pricing_conn(&conn);
-    let per_min = state.get_effective_rate(&st_type, &payment_method, &pricing);
-    let round_mins = pricing.round_minutes.max(1);
-    let chunks = ((dur_mins as f64) / (round_mins as f64)).ceil() as i64;
-    let rounded = chunks * round_mins;
-    let fee = (rounded as f64 * per_min).max(pricing.min_charge);
-    let extra_fee = extra_controllers.max(0) as f64 * (pricing.extra_controller_per_hour / 60.0) * rounded as f64;
+    let per_min = if rate_type == "nakit" { pricing.cash_per_minute } else { pricing.card_per_minute };
+    let paused_seconds = if let Some(ref p) = paused_at {
+        if let Ok(pd) = chrono::DateTime::parse_from_rfc3339(p) {
+            now.signed_duration_since(pd.with_timezone(&Local)).num_seconds().max(0)
+        } else { 0 }
+    } else { 0 };
     let dt: f64 = conn.query_row("SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE session_id=?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
     let max_secs = pricing.max_session_minutes * 60;
     let warn_secs = pricing.warning_before_minutes * 60;
@@ -66,7 +57,7 @@ pub fn calculate_live_fee(station_id: String, payment_method: String, state: Sta
         "minutes": dur_mins, "seconds": dur_secs, "current_fee": fee, "per_minute": per_min,
         "extra_controllers": extra_controllers, "extra_fee": extra_fee, "extra_controller_per_hour": pricing.extra_controller_per_hour,
         "drink_total": dt, "total_with_drinks": fee + extra_fee + dt, "is_paused": is_paused,
-        "paused_seconds": paused_remaining, "station_type": st_type,
+        "paused_seconds": paused_seconds, "station_type": st_type,
         "show_warning": pricing.max_session_minutes > 0 && total_secs >= (max_secs - warn_secs) && total_secs < max_secs,
         "auto_end": pricing.max_session_minutes > 0 && total_secs >= max_secs,
         "remaining_seconds": if max_secs > 0 { (max_secs - total_secs).max(0) } else { 0 },

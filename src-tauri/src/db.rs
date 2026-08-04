@@ -20,6 +20,7 @@ pub struct CurrentUser {
     pub full_name: String,
     pub role: String,
     pub permissions: String,
+    pub must_change_password: bool,
 }
 
 impl CurrentUser {
@@ -131,6 +132,7 @@ pub fn migrate_db(conn: &Connection) {
         ("session_history", "discount REAL DEFAULT 0"),
         ("session_history", "discount_reason TEXT NOT NULL DEFAULT ''"),
         ("users", "permissions TEXT NOT NULL DEFAULT '{}'"),
+        ("users", "must_change_password INTEGER NOT NULL DEFAULT 0"),
     ];
     for (table, col_def) in alter_cols {
         let col_name = col_def.split_whitespace().next().unwrap();
@@ -218,7 +220,7 @@ pub fn seed_defaults(conn: &Connection) {
     let uc: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0)).unwrap_or(0);
     if uc == 0 {
         let hash = crate::commands::auth::make_hash("admin123");
-        conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, created_at) VALUES (?1, 'admin', ?2, 'Yönetici', 'admin', 1, ?3)",
+        conn.execute("INSERT INTO users (id, username, password_hash, full_name, role, active, must_change_password, created_at) VALUES (?1, 'admin', ?2, 'Yönetici', 'admin', 1, 1, ?3)",
             params![Uuid::new_v4().to_string(), hash, Local::now().to_rfc3339()]).unwrap();
     }
 }
@@ -249,8 +251,8 @@ impl AppState {
 
     fn cleanup_old_backups(&self, dir: &PathBuf) {
         if let Ok(entries) = fs::read_dir(dir) {
-            let mut b: Vec<_> = entries.filter_map(|e| e.ok()).filter(|e| e.path().extension().map_or(false, |x| x == "sqlite")).collect();
-            b.sort_by(|a, c| c.file_name().cmp(&a.file_name()));
+            let mut b: Vec<_> = entries.filter_map(|e| e.ok()).filter(|e| e.path().extension().is_some_and(|x| x == "sqlite")).collect();
+            b.sort_by_key(|e| std::cmp::Reverse(e.file_name()));
             for e in b.into_iter().skip(30) { let _ = fs::remove_file(e.path()); }
         }
     }

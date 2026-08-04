@@ -2,6 +2,8 @@ use rusqlite::params;
 use tauri::State;
 use uuid::Uuid;
 use chrono::Local;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
@@ -11,6 +13,39 @@ use crate::db::{AppState, CurrentUser};
 use crate::models::*;
 
 const LEGACY_SALT: &str = "oyun-kafe-2026";
+const MAX_FAILED_ATTEMPTS: usize = 5;
+const LOCKOUT_SECONDS: i64 = 300;
+
+static LOGIN_FAILURES: Mutex<Option<HashMap<String, Vec<i64>>>> = Mutex::new(None);
+
+fn check_lockout(username: &str) -> Result<(), String> {
+    let now = Local::now().timestamp();
+    let mut g = LOGIN_FAILURES.lock().map_err(|_| "Kilit durumu okunamadı".to_string())?;
+    let map = g.get_or_insert_with(HashMap::new);
+    let entry = map.entry(username.to_string()).or_default();
+    entry.retain(|t| now - t < LOCKOUT_SECONDS);
+    if entry.len() >= MAX_FAILED_ATTEMPTS {
+        let wait = entry[0] + LOCKOUT_SECONDS - now;
+        return Err(format!("Çok fazla hatalı deneme. {} sn sonra tekrar deneyin.", wait.max(0)));
+    }
+    Ok(())
+}
+
+fn record_failure(username: &str) {
+    let now = Local::now().timestamp();
+    if let Ok(mut g) = LOGIN_FAILURES.lock() {
+        let map = g.get_or_insert_with(HashMap::new);
+        map.entry(username.to_string()).or_default().push(now);
+    }
+}
+
+fn clear_failures(username: &str) {
+    if let Ok(mut g) = LOGIN_FAILURES.lock() {
+        if let Some(map) = g.as_mut() {
+            map.remove(username);
+        }
+    }
+}
 
 pub fn make_hash(password: &str) -> String {
     let salt = SaltString::generate(&mut OsRng);
@@ -76,6 +111,10 @@ pub fn require_admin(state: &State<AppState>) -> Result<CurrentUser, String> {
     Ok(u)
 }
 
+pub fn require_login(state: &State<AppState>) -> Result<CurrentUser, String> {
+    get_current(state).ok_or_else(|| "Giriş yapılmamış!".to_string())
+}
+
 pub fn permissions_json(discount_limit: Option<f64>) -> String {
     let limit = discount_limit.unwrap_or(0.0).max(0.0);
     serde_json::json!({ "discount_limit": limit }).to_string()
@@ -101,14 +140,16 @@ pub fn log_audit_conn(conn: &rusqlite::Connection, state: &AppState, action: &st
 
 #[tauri::command]
 pub fn login(username: String, password: String, state: State<AppState>) -> Result<CurrentUser, String> {
+    check_lockout(&username)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let user = conn.query_row("SELECT id, username, password_hash, full_name, role, active, COALESCE(permissions,'{}') FROM users WHERE username = ?1", params![username],
-        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, i64>(5)?, r.get::<_, String>(6)?)))
-        .map_err(|_| "Kullanıcı bulunamadı!")?;
-    let (id, uname, hash, full_name, role, active, permissions) = user;
-    if active != 1 { return Err("Kullanıcı pasif!".into()); }
-    if !verify_password(&password, &hash) { return Err("Yanlış şifre!".into()); }
-    let cu = CurrentUser { id, username: uname, full_name, role, permissions };
+    let user = conn.query_row("SELECT id, username, password_hash, full_name, role, active, COALESCE(permissions,'{}'), COALESCE(must_change_password,0) FROM users WHERE username = ?1", params![username],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, i64>(5)?, r.get::<_, String>(6)?, r.get::<_, i64>(7)?)))
+        .map_err(|_| { record_failure(&username); "Kullanıcı bulunamadı!".to_string() })?;
+    let (id, uname, hash, full_name, role, active, permissions, must_change_password) = user;
+    if active != 1 { record_failure(&username); return Err("Kullanıcı pasif!".into()); }
+    if !verify_password(&password, &hash) { record_failure(&username); return Err("Yanlış şifre!".into()); }
+    clear_failures(&username);
+    let cu = CurrentUser { id, username: uname, full_name, role, permissions, must_change_password: must_change_password == 1 };
     *state.current_user.lock().map_err(|e| e.to_string())? = Some(cu.clone());
     Ok(cu)
 }
@@ -138,7 +179,7 @@ pub fn list_users(state: State<AppState>) -> Result<Vec<UserRecord>, String> {
 pub fn add_user(username: String, password: String, full_name: String, role: String, discount_limit: Option<f64>, state: State<AppState>) -> Result<(), String> {
     require_admin(&state)?;
     if username.trim().len() < 3 { return Err("Kullanıcı adı en az 3 karakter olmalı!".into()); }
-    if password.len() < 4 { return Err("Şifre en az 4 karakter olmalı!".into()); }
+    if password.len() < 6 { return Err("Şifre en az 6 karakter olmalı!".into()); }
     let role = if role == "admin" { "admin" } else { "calisan" };
     let permissions = permissions_json(discount_limit);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
@@ -176,21 +217,33 @@ pub fn remove_user(user_id: String, state: State<AppState>) -> Result<(), String
 #[tauri::command]
 pub fn change_password(old_password: String, new_password: String, state: State<AppState>) -> Result<(), String> {
     let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
-    if new_password.len() < 4 { return Err("Yeni şifre en az 4 karakter olmalı!".into()); }
+    if new_password.len() < 6 { return Err("Yeni şifre en az 6 karakter olmalı!".into()); }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let current_hash: String = conn.query_row("SELECT password_hash FROM users WHERE id = ?1", params![user.id], |r| r.get(0)).map_err(|_| "Kullanıcı bulunamadı!")?;
     if !verify_password(&old_password, &current_hash) { return Err("Mevcut şifre yanlış!".into()); }
-    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![make_hash(&new_password), user.id]).map_err(|e| e.to_string())?;
+    conn.execute("UPDATE users SET password_hash = ?1, must_change_password = 0 WHERE id = ?2", params![make_hash(&new_password), user.id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "change_password", "auth", "Şifre değiştirildi");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn force_change_password(new_password: String, state: State<AppState>) -> Result<(), String> {
+    let user = get_current(&state).ok_or("Giriş yapılmamış!")?;
+    if new_password.len() < 6 { return Err("Yeni şifre en az 6 karakter olmalı!".into()); }
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    let must: i64 = conn.query_row("SELECT COALESCE(must_change_password,0) FROM users WHERE id = ?1", params![user.id], |r| r.get(0)).unwrap_or(0);
+    if must != 1 { return Err("Şifre değişikliği zorunlu değil".into()); }
+    conn.execute("UPDATE users SET password_hash = ?1, must_change_password = 0 WHERE id = ?2", params![make_hash(&new_password), user.id]).map_err(|e| e.to_string())?;
+    log_audit_conn(&conn, &state, "change_password", "auth", "İlk girişte şifre değiştirildi");
     Ok(())
 }
 
 #[tauri::command]
 pub fn reset_user_password(user_id: String, new_password: String, state: State<AppState>) -> Result<(), String> {
     require_admin(&state)?;
-    if new_password.len() < 4 { return Err("Yeni şifre en az 4 karakter olmalı!".into()); }
+    if new_password.len() < 6 { return Err("Yeni şifre en az 6 karakter olmalı!".into()); }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("UPDATE users SET password_hash = ?1 WHERE id = ?2", params![make_hash(&new_password), user_id]).map_err(|e| e.to_string())?;
+    conn.execute("UPDATE users SET password_hash = ?1, must_change_password = 0 WHERE id = ?2", params![make_hash(&new_password), user_id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "reset_password", "users", "Şifre sıfırlandı");
     Ok(())
 }

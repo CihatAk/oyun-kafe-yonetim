@@ -38,7 +38,7 @@ fn main() {
             settings::get_low_stock_threshold, settings::set_low_stock_threshold,
             auth::login, auth::logout, auth::get_current_user,
             auth::list_users, auth::add_user, auth::update_user, auth::remove_user,
-            auth::change_password, auth::reset_user_password,
+            auth::change_password, auth::force_change_password, auth::reset_user_password,
             auth::get_audit_log,
             web::get_web_info, web::get_sync_status, web::get_supabase_config_info, web::save_supabase_config,
             toggle_fullscreen,

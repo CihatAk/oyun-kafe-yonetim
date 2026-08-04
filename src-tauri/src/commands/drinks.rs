@@ -5,7 +5,7 @@ use chrono::Local;
 
 use crate::db::AppState;
 use crate::models::*;
-use crate::commands::auth::log_audit_conn;
+use crate::commands::auth::{log_audit_conn, require_login};
 use crate::commands::settings::get_setting_value;
 
 const DRINK_COLS: &str = "id, name, price, category, stock, emoji, description, cost, min_stock, is_active";
@@ -135,20 +135,33 @@ pub fn remove_drink(drink_id: String, state: State<AppState>) -> Result<(), Stri
 
 #[tauri::command]
 pub fn order_drink(session_id: String, drink_id: String, quantity: i32, state: State<AppState>) -> Result<DrinkOrder, String> {
+    require_login(&state)?;
     if quantity < 1 { return Err("Geçerli bir adet girin".into()); }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let (sname, cust) = conn.query_row("SELECT station_name, customer FROM active_sessions WHERE station_id = ?1", params![session_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?))).map_err(|_| "Aktif oturum bulunamadı")?;
     let (dname, price, stock, is_active) = conn.query_row("SELECT name, price, stock, is_active FROM drinks WHERE id = ?1", params![drink_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,f64>(1)?, r.get::<_,i64>(2)?, r.get::<_,i64>(3)?))).map_err(|_| "İçecek bulunamadı")?;
     if is_active != 1 { return Err(format!("'{}' şu anda menüde değil", dname)); }
     if stock >= 0 && quantity as i64 > stock { return Err(format!("Stok yetersiz! Kalan: {}", stock)); }
-    if stock >= 0 { conn.execute("UPDATE drinks SET stock = stock - ?1 WHERE id = ?2", params![quantity, drink_id]).map_err(|e| e.to_string())?; }
     let id = Uuid::new_v4().to_string();
     let total = price * quantity as f64;
     let ot = Local::now().to_rfc3339();
-    conn.execute("INSERT INTO drink_orders (id,session_id,station_name,customer,drink_name,drink_id,price,quantity,total,order_time) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)", params![id,session_id,sname,cust,dname,drink_id,price,quantity,total,ot]).map_err(|e| e.to_string())?;
-    if stock >= 0 {
-        let _ = log_stock_movement(&conn, &drink_id, -(quantity as i64), &format!("Masaya eklendi: {} - {}", sname, cust));
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        if stock >= 0 {
+            let affected = conn.execute("UPDATE drinks SET stock = stock - ?1 WHERE id = ?2 AND stock >= ?3", params![quantity, drink_id, quantity]).map_err(|e| e.to_string())?;
+            if affected == 0 { return Err("Stok yetersiz!".into()); }
+        }
+        conn.execute("INSERT INTO drink_orders (id,session_id,station_name,customer,drink_name,drink_id,price,quantity,total,order_time) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)", params![id,session_id,sname,cust,dname,drink_id,price,quantity,total,ot]).map_err(|e| e.to_string())?;
+        if stock >= 0 {
+            let _ = log_stock_movement(&conn, &drink_id, -(quantity as i64), &format!("Masaya eklendi: {} - {}", sname, cust));
+        }
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
     }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "add_drink_to_table", "drinks", format!("{} x{} -> {}", dname, quantity, sname).as_str());
     Ok(DrinkOrder { id, session_id, station_name: sname, customer: cust, drink_name: dname, price, quantity, total, order_time: ot })
 }
@@ -163,14 +176,24 @@ pub fn get_drink_orders(state: State<AppState>) -> Result<Vec<DrinkOrder>, Strin
 
 #[tauri::command]
 pub fn remove_drink_order(order_id: String, state: State<AppState>) -> Result<(), String> {
+    require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let (drink_id, qty): (String, i64) = conn.query_row("SELECT drink_id, quantity FROM drink_orders WHERE id = ?1", params![order_id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|_| "Kayıt bulunamadı")?;
-    conn.execute("DELETE FROM drink_orders WHERE id = ?1", params![order_id]).map_err(|e| e.to_string())?;
-    let current_stock: i64 = conn.query_row("SELECT stock FROM drinks WHERE id = ?1", params![drink_id], |r| r.get(0)).unwrap_or(-1);
-    if current_stock >= 0 {
-        conn.execute("UPDATE drinks SET stock = stock + ?1 WHERE id = ?2", params![qty, drink_id]).map_err(|e| e.to_string())?;
-        let _ = log_stock_movement(&conn, &drink_id, qty, "Masadan kaldırıldı");
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        conn.execute("DELETE FROM drink_orders WHERE id = ?1", params![order_id]).map_err(|e| e.to_string())?;
+        let current_stock: i64 = conn.query_row("SELECT stock FROM drinks WHERE id = ?1", params![drink_id], |r| r.get(0)).unwrap_or(-1);
+        if current_stock >= 0 {
+            conn.execute("UPDATE drinks SET stock = stock + ?1 WHERE id = ?2", params![qty, drink_id]).map_err(|e| e.to_string())?;
+            let _ = log_stock_movement(&conn, &drink_id, qty, "Masadan kaldırıldı");
+        }
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
     }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "remove_drink_from_table", "drinks", &order_id);
     Ok(())
 }

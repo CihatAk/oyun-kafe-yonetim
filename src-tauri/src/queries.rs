@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local};
 use rusqlite::{params, Connection};
 use serde_json::json;
+use std::collections::HashMap;
 
 use crate::db::AppState;
 use crate::commands::settings::get_setting_value;
@@ -100,6 +101,17 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
         }
     }
 
+    let mut drink_totals: HashMap<String, f64> = HashMap::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT session_id, COALESCE(SUM(total),0) FROM drink_orders WHERE session_id IN (SELECT station_id FROM active_sessions) GROUP BY session_id",
+    ) {
+        if let Ok(rows) = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))) {
+            for r in rows.flatten() {
+                drink_totals.insert(r.0, r.1);
+            }
+        }
+    }
+
     let mut sessions: Vec<serde_json::Value> = Vec::new();
     let mut live_estimate = 0.0f64;
     if let Ok(mut stmt) = conn.prepare(
@@ -122,8 +134,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 let (mins, _secs, fee, extra_fee, is_paused) =
                     session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused, extra_controllers);
                 live_estimate += fee + extra_fee;
-                let drink_total =
-                    scalar_f64(conn, "SELECT COALESCE(SUM(total),0) FROM drink_orders WHERE session_id = ?1", params![station_id]);
+                let drink_total = drink_totals.get(&station_id).copied().unwrap_or(0.0);
                 sessions.push(json!({
                     "station_id": station_id, "station_name": station_name,
                     "customer": customer, "rate_type": rate_type, "start_time": start_time,
@@ -241,7 +252,7 @@ pub fn history_since_days(conn: &Connection, days: i64) -> serde_json::Value {
     let cutoff = (Local::now() - chrono::Duration::days(days)).to_rfc3339();
     let mut items: Vec<serde_json::Value> = Vec::new();
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0) FROM session_history WHERE end_time >= ?1 ORDER BY end_time DESC",
+        "SELECT id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0), COALESCE(extra_controllers,0), COALESCE(extra_fee,0) FROM session_history WHERE end_time >= ?1 ORDER BY end_time DESC",
     ) {
         if let Ok(rows) = stmt.query_map(params![cutoff], |row| {
             Ok((
@@ -254,16 +265,19 @@ pub fn history_since_days(conn: &Connection, days: i64) -> serde_json::Value {
                 row.get::<_, f64>(6)?,
                 row.get::<_, String>(7)?,
                 row.get::<_, f64>(8)?,
+                row.get::<_, i64>(9)?,
+                row.get::<_, f64>(10)?,
             ))
         }) {
             for r in rows.flatten() {
-                let (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, drink_total) = r;
+                let (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, drink_total, extra_controllers, extra_fee) = r;
                 items.push(json!({
                     "id": id,
                     "station_name": station_name, "customer": customer,
                     "start_time": start_time, "end_time": end_time,
                     "duration_minutes": duration_minutes, "total": total,
                     "payment_method": payment_method, "drink_total": drink_total,
+                    "extra_controllers": extra_controllers, "extra_fee": extra_fee,
                 }));
             }
         }

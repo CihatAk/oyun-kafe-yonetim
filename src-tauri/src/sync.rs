@@ -143,8 +143,11 @@ fn run_once() -> Result<(), String> {
             })
         })
         .collect();
-    push_err(upsert(&client, &cfg, "kafe_sessions", &sessions));
-    push_err(delete_stale_sessions(&client, &cfg));
+    let sessions_res = upsert(&client, &cfg, "kafe_sessions", &sessions);
+    if sessions_res.is_ok() {
+        push_err(delete_stale_sessions(&client, &cfg));
+    }
+    push_err(sessions_res);
 
     let drinks_val = queries::drinks(&conn);
     let drinks: Vec<Value> = drinks_val
