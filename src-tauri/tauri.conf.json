@@ -55,7 +55,7 @@
       }
     },
     "updater": {
-      "active": true,
+      "active": false,
       "endpoints": [
         "https://github.com/CihatAk/oyun-kafe-yonetim/releases/download/v2.0.3/latest.json"
       ],
