@@ -57,10 +57,10 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://api.github.com/repos/CihatAk/oyun-kafe-yonetim/releases/latest"
+        "https://github.com/CihatAk/oyun-kafe-yonetim/releases/download/v2.0.3/latest.json"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1NDg1NkEwMDkxQjNBNEQKUldSTk9oc0pvRlpJcFVxMUpJV2paeEtWZndJYTdwRkJ5dlg2T2VxVHRUZFZ2bEZIaDBHbGVoY2IK"
+      "pubkey": ""
     },
     "windows": [
       {
