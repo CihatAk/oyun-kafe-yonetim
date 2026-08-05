@@ -206,7 +206,10 @@
             <div id="web-card" class="hidden glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-lg font-semibold flex items-center gap-2">📱 Web Görüntüleme</h2>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/70 text-slate-300" id="web-status">⏳ başlatılıyor...</span>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/70 text-slate-300" id="web-status">⏳ başlatılıyor...</span>
+                        <button onclick="lockWebCard()" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800/80 border border-slate-600/60 hover:bg-slate-700 hover:text-white text-slate-300 transition" title="Kartı kilitle ve geliştirici erişimini kapat">🔒 Kilitle</button>
+                    </div>
                 </div>
                 <p class="text-slate-400 text-sm mb-3">İşletme sahibi telefonundan salt-okunur panel ile canlı durumu izleyebilir. Panel internet üzerinden Supabase üzerinden yayınlanır, giriş gerektirmez.</p>
                 <div class="bg-slate-900/60 rounded-xl p-3 mb-3">
@@ -1282,6 +1285,13 @@
                 err.classList.remove('hidden');
                 document.getElementById('dev-pass-input').value = '';
             }
+        }
+
+        function lockWebCard() {
+            window.__webUnlocked = false;
+            document.getElementById('web-card').classList.add('hidden');
+            document.getElementById('web-unlock-wrap').classList.remove('hidden');
+            showToast('Web Görüntüleme kartı kilitlendi');
         }
 
         async function saveSupabaseConfig() {
