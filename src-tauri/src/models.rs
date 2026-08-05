@@ -82,6 +82,39 @@ pub struct StockMovement {
     pub created_at: String,
 }
 
+#[derive(Clone, Serialize, Debug)]
+pub struct StockReportItem {
+    pub id: String,
+    pub name: String,
+    pub emoji: String,
+    pub category: String,
+    pub price: f64,
+    pub cost: f64,
+    pub stock: i64,
+    pub min_stock: i64,
+    pub is_active: i64,
+    pub value: f64,
+    pub status: String,
+    pub sold_today: i64,
+    pub sold_total: i64,
+    pub revenue_total: f64,
+    pub last_movement_at: String,
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub struct StockReport {
+    pub date: String,
+    pub total_items: i64,
+    pub active_items: i64,
+    pub low_items: i64,
+    pub out_items: i64,
+    pub unlimited_items: i64,
+    pub total_stock_value: f64,
+    pub total_cost_value: f64,
+    pub total_profit: f64,
+    pub items: Vec<StockReportItem>,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PricingConfig {
     pub cash_per_minute: f64,

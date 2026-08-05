@@ -249,11 +249,27 @@ pub fn reset_user_password(user_id: String, new_password: String, state: State<A
 }
 
 #[tauri::command]
-pub fn get_audit_log(state: State<AppState>, limit: Option<i64>) -> Result<Vec<AuditRecord>, String> {
+pub fn get_audit_log(state: State<AppState>, limit: Option<i64>, start_date: Option<String>, end_date: Option<String>) -> Result<Vec<AuditRecord>, String> {
     require_admin(&state)?;
     let lim = limit.unwrap_or(200);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, user_name, action, entity, detail, created_at FROM audit_log ORDER BY created_at DESC LIMIT ?1").map_err(|e| e.to_string())?;
-    let logs = stmt.query_map(params![lim], |r| Ok(AuditRecord { id: r.get(0)?, user_name: r.get(1)?, action: r.get(2)?, entity: r.get(3)?, detail: r.get(4)?, created_at: r.get(5)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+    let mut sql = "SELECT id, user_name, action, entity, detail, created_at FROM audit_log WHERE 1=1".to_string();
+    let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut idx = 1;
+    if let Some(ref sd) = start_date {
+        sql.push_str(&format!(" AND date(created_at) >= ?{}", idx));
+        args.push(Box::new(sd.clone()));
+        idx += 1;
+    }
+    if let Some(ref ed) = end_date {
+        sql.push_str(&format!(" AND date(created_at) <= ?{}", idx));
+        args.push(Box::new(ed.clone()));
+        idx += 1;
+    }
+    sql.push_str(&format!(" ORDER BY created_at DESC LIMIT ?{}", idx));
+    args.push(Box::new(lim));
+    let refs: Vec<&dyn rusqlite::types::ToSql> = args.iter().map(|a| a.as_ref()).collect();
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let logs = stmt.query_map(refs.as_slice(), |r| Ok(AuditRecord { id: r.get(0)?, user_name: r.get(1)?, action: r.get(2)?, entity: r.get(3)?, detail: r.get(4)?, created_at: r.get(5)? })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(logs)
 }

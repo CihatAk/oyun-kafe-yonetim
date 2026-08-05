@@ -86,6 +86,8 @@ create table if not exists public.kafe_day_end (
   partial_card double precision default 0,
   top_drinks jsonb default '[]',
   top_stations jsonb default '[]',
+  drink_details jsonb default '[]',
+  session_details jsonb default '[]',
   updated_at timestamptz default now()
 );
 
@@ -130,6 +132,8 @@ alter table public.kafe_sessions  add column if not exists extra_controllers int
 alter table public.kafe_sessions  add column if not exists extra_fee double precision default 0;
 alter table public.kafe_history   add column if not exists extra_controllers integer default 0;
 alter table public.kafe_history   add column if not exists extra_fee double precision default 0;
+alter table public.kafe_day_end   add column if not exists drink_details jsonb default '[]';
+alter table public.kafe_day_end   add column if not exists session_details jsonb default '[]';
 
 -- VIP sisteminden kalma sütunlar artık kullanılmıyor (opsiyonel temizlik):
 alter table public.kafe_overview drop column if exists vip_total;

@@ -229,6 +229,8 @@ fn day_end_row(date: &str, de: &Value, now: &str) -> Value {
         "partial_card": de["partial_card"],
         "top_drinks": de["top_drinks"],
         "top_stations": de["top_stations"],
+        "drink_details": de["drink_details"],
+        "session_details": de["session_details"],
         "updated_at": now,
     })
 }

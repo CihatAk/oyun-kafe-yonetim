@@ -77,6 +77,29 @@ pub fn clear_history(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn delete_history(history_id: String, state: State<AppState>) -> Result<(), String> {
+    crate::commands::auth::require_admin(&state)?;
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    let (station_name, total): (String, f64) = conn
+        .query_row("SELECT station_name, COALESCE(total,0) FROM session_history WHERE id = ?1", params![history_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|_| "Geçmiş kaydı bulunamadı")?;
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        conn.execute("DELETE FROM drink_orders WHERE session_id = ?1", params![history_id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM partial_payments WHERE session_id = ?1", params![history_id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM session_history WHERE id = ?1", params![history_id]).map_err(|e| e.to_string())?;
+        log_audit_conn(&conn, &state, "delete_history", "history", format!("{} (₺{:.2})", station_name, total).as_str());
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ─── Dışa Aktarma ────────────────────────────────────────────────────
 
 #[tauri::command]

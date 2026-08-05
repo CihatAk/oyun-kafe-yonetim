@@ -243,3 +243,50 @@ pub fn get_low_stock_items(state: State<AppState>) -> Result<Vec<DrinkItem>, Str
     let items = stmt.query_map(params![threshold], |row| drink_from_row(row)).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(items)
 }
+
+#[tauri::command]
+pub fn get_stock_report(state: State<AppState>) -> Result<StockReport, String> {
+    crate::commands::auth::require_admin(&state)?;
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    let threshold: i64 = get_setting_value(&conn, "low_stock_threshold").and_then(|v| v.parse().ok()).unwrap_or(5);
+    let today = Local::now().date_naive().to_string();
+    let mut items: Vec<StockReportItem> = Vec::new();
+    let mut stmt = conn
+        .prepare("SELECT id, name, price, category, stock, emoji, cost, min_stock, is_active FROM drinks ORDER BY is_active DESC, category, name")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| Ok((
+            row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, f64>(2)?,
+            row.get::<_, String>(3)?, row.get::<_, i64>(4)?, row.get::<_, String>(5)?,
+            row.get::<_, f64>(6)?, row.get::<_, i64>(7)?, row.get::<_, i64>(8)?,
+        )))
+        .map_err(|e| e.to_string())?;
+    for r in rows.filter_map(|r| r.ok()) {
+        let (id, name, price, category, stock, emoji, cost, min_stock, is_active) = r;
+        let limit = if min_stock >= 0 { min_stock } else { threshold };
+        let status = if stock < 0 { "Sınırsız".to_string() } else if stock <= 0 { "Tükendi".to_string() } else if stock <= limit { "Düşük".to_string() } else { "Yeterli".to_string() };
+        let value = if stock >= 0 { stock as f64 * price } else { 0.0 };
+        let (sold_today, sold_total, revenue_total): (i64, i64, f64) = conn.query_row(
+            "SELECT COALESCE(SUM(CASE WHEN date(order_time) = ?2 THEN quantity END),0), COALESCE(SUM(quantity),0), COALESCE(SUM(total),0) FROM drink_orders WHERE drink_id = ?1",
+            params![id, today], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap_or((0, 0, 0.0));
+        let last_movement_at: String = conn.query_row(
+            "SELECT COALESCE(MAX(created_at),'') FROM stock_movements WHERE drink_id = ?1",
+            params![id], |row| row.get(0)).unwrap_or_default();
+        items.push(StockReportItem {
+            id, name, emoji, category, price, cost, stock, min_stock, is_active,
+            value, status, sold_today, sold_total, revenue_total, last_movement_at,
+        });
+    }
+    let total_items = items.len() as i64;
+    let active_items = items.iter().filter(|i| i.is_active == 1).count() as i64;
+    let low_items = items.iter().filter(|i| i.status == "Düşük").count() as i64;
+    let out_items = items.iter().filter(|i| i.status == "Tükendi").count() as i64;
+    let unlimited_items = items.iter().filter(|i| i.stock < 0).count() as i64;
+    let total_stock_value: f64 = items.iter().map(|i| i.value).sum();
+    let total_cost_value: f64 = items.iter().map(|i| if i.stock >= 0 { i.stock as f64 * i.cost } else { 0.0 }).sum();
+    let total_profit = total_stock_value - total_cost_value;
+    Ok(StockReport {
+        date: today, total_items, active_items, low_items, out_items, unlimited_items,
+        total_stock_value, total_cost_value, total_profit, items,
+    })
+}

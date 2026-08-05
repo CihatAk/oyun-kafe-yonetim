@@ -134,6 +134,8 @@
     #de-report h3 { font-size:13px; margin:16px 0 6px; text-transform:uppercase; color:#333; border-bottom:1px solid #ddd; padding-bottom:4px; }
     #de-report .rd { margin:0 0 14px; color:#555; font-size:12px; }
     #de-report table { width:100%; border-collapse:collapse; margin:10px 0; }
+    #de-report th { padding:6px 8px; border-bottom:1px solid #bbb; font-size:11px; text-transform:uppercase; text-align:left; color:#333; }
+    #de-report th.amt { text-align:right; }
     #de-report td { padding:7px 8px; border-bottom:1px solid #e0e0e0; font-size:13px; }
     #de-report td.amt { text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
     #de-report ul { margin:4px 0; padding-left:18px; }
@@ -219,7 +221,6 @@
     </div>
     <div class="cards" style="margin-top:12px">
       <div class="card g"><div class="lbl">Kapanan Oturum</div><div class="val" id="de-sessions">0</div></div>
-      <div class="card"><div class="lbl">Ort. Süre</div><div class="val" id="de-avg">0 dk</div></div>
       <div class="card a"><div class="lbl">İçecek Geliri</div><div class="val" id="de-drinks">₺0</div></div>
       <div class="card r"><div class="lbl">İndirim</div><div class="val" id="de-discount">₺0</div></div>
     </div>
@@ -236,10 +237,10 @@
       <div><div class="p-name">🧾 Diğer</div></div>
       <div class="p-amount" id="de-other" style="color:var(--muted)">₺0</div>
     </div>
-    <div class="section-head">En Çok Satılanlar</div>
-    <div id="de-top-drinks"></div>
-    <div class="section-head">En Yüksek Cirolu Masalar</div>
-    <div id="de-top-stations"></div>
+    <div class="section-head">🥤 Satılan Ürünler <span style="font-weight:400;color:var(--muted)">— gün sonuna kadar tüm ürünler</span></div>
+    <div id="de-drink-details"></div>
+    <div class="section-head">🖥️ Açılan Oturumlar <span style="font-weight:400;color:var(--muted)">— gün sonuna kadar tüm oturumlar</span></div>
+    <div id="de-session-details"></div>
   </section>
 
   <section id="tab-urunler">
@@ -570,19 +571,18 @@
     if(!de){
       $('de-total').textContent = '₺0';
       $('de-date').textContent = fmtDate(date) + ' için kayıt bulunamadı.';
-      $('de-sessions').textContent = '0'; $('de-avg').textContent = '0 dk';
+      $('de-sessions').textContent = '0';
       $('de-drinks').textContent = '₺0'; $('de-discount').textContent = '₺0';
       $('de-cash').textContent = '₺0'; $('de-card').textContent = '₺0';
       $('de-cash-sub').textContent = ''; $('de-card-sub').textContent = '';
       $('de-other-row').classList.add('hidden');
-      $('de-top-drinks').innerHTML = ''; $('de-top-stations').innerHTML = '';
+      $('de-drink-details').innerHTML = ''; $('de-session-details').innerHTML = '';
       buildReport(null, date);
       return;
     }
     $('de-total').textContent = fmt(de.total_revenue);
     $('de-date').textContent = 'Tarih: ' + fmtDate(date);
     $('de-sessions').textContent = de.sessions || 0;
-    $('de-avg').textContent = Math.round(de.avg_duration_minutes||0) + ' dk';
     $('de-drinks').textContent = fmt(de.drink_revenue);
     $('de-discount').textContent = fmt(de.total_discount);
 
@@ -595,16 +595,38 @@
     if(de.other_revenue > 0){ $('de-other-row').classList.remove('hidden'); $('de-other').textContent = fmt(de.other_revenue); }
     else $('de-other-row').classList.add('hidden');
 
-    var drinks = de.top_drinks || [];
-    $('de-top-drinks').innerHTML = drinks.length
-      ? drinks.map(function(x, i){ return rankItem(i, x.name, x.quantity + ' adet · ' + fmt(x.total), fmt(x.total)); }).join('')
+    var drinks = de.drink_details && de.drink_details.length ? de.drink_details : [];
+    $('de-drink-details').innerHTML = drinks.length
+      ? drinks.map(function(x){ return detailRow([
+          (x.emoji||'🥤') + ' ' + x.name,
+          (x.category||'-') + ' · ' + fmt(x.price) + ' / birim',
+          'x' + x.quantity,
+          fmt(x.total)
+        ]); }).join('')
       : '<div class="empty">Henüz satış yok</div>';
 
-    var stations = de.top_stations || [];
-    $('de-top-stations').innerHTML = stations.length
-      ? stations.map(function(x, i){ return rankItem(i, x.name, x.sessions + ' oturum', fmt(x.total)); }).join('')
+    var sessions = de.session_details && de.session_details.length ? de.session_details : [];
+    $('de-session-details').innerHTML = sessions.length
+      ? sessions.map(function(s){
+          var extra = Number(s.extra_controllers||0) > 0 ? ' · 🎮+' + s.extra_controllers : '';
+          var disc = Number(s.discount||0) > 0 ? ' · İndirim -' + fmt(s.discount) : '';
+          return detailRow([
+            s.station_name,
+            fmtTime(s.start_time) + ' → ' + fmtTime(s.end_time) + ' · ' + dur(s.duration_minutes),
+            'İçecek: ' + fmt(s.drink_total||0) + ' · ' + (s.payment_method||'-') + extra + disc,
+            fmt(s.total)
+          ]);
+        }).join('')
       : '<div class="empty">Henüz oturum yok</div>';
     buildReport(de, date);
+  }
+
+  function detailRow(cells){
+    return '<div class="row">' +
+      '<div class="r1"><span class="name">' + esc(cells[0]) + '</span><span class="fee">' + cells[3] + '</span></div>' +
+      '<div class="r2">' + esc(cells[1]) + '</div>' +
+      '<div class="r3"><span>' + esc(cells[2]) + '</span></div>' +
+      '</div>';
   }
 
   function buildReport(de, date){
@@ -620,7 +642,6 @@
     var rows = [
       ['Toplam Ciro', fmt(de.total_revenue)],
       ['Kapanan Oturum', de.sessions||0],
-      ['Ortalama Süre', Math.round(de.avg_duration_minutes||0) + ' dk'],
       ['İçecek Geliri', fmt(de.drink_revenue)],
       ['İndirim', fmt(de.total_discount)],
       ['Nakit', fmt(cash)],
@@ -629,22 +650,26 @@
     if(de.other_revenue > 0) rows.push(['Diğer', fmt(de.other_revenue)]);
     var h = '<h1>🎮 Oyun Kafe</h1><h2>Gün Sonu Raporu</h2><p class="rd">Tarih: ' + fmtDate(date) + '</p>';
     h += '<table>' + rows.map(function(r){ return '<tr><td>' + r[0] + '</td><td class="amt">' + r[1] + '</td></tr>'; }).join('') + '</table>';
-    h += '<h3>En Çok Satılanlar</h3><ul>' + (((de.top_drinks||[]).length)
-      ? de.top_drinks.map(function(x,i){ return '<li>'+(i+1)+'. <b>'+esc(x.name)+'</b> — '+x.quantity+' adet · '+fmt(x.total)+'</li>'; }).join('')
-      : '<li>Veri yok</li>') + '</ul>';
-    h += '<h3>En Yüksek Cirolu Masalar</h3><ul>' + (((de.top_stations||[]).length)
-      ? de.top_stations.map(function(x,i){ return '<li>'+(i+1)+'. <b>'+esc(x.name)+'</b> — '+x.sessions+' oturum · '+fmt(x.total)+'</li>'; }).join('')
-      : '<li>Veri yok</li>') + '</ul>';
+
+    var drinks = de.drink_details && de.drink_details.length ? de.drink_details : [];
+    h += '<h3>🥤 Satılan Ürünler</h3>';
+    h += '<table><thead><tr><th>Ürün</th><th>Kategori</th><th>Birim</th><th>Adet</th><th class="amt">Toplam</th></tr></thead><tbody>';
+    h += drinks.length ? drinks.map(function(x){
+      return '<tr><td>' + esc((x.emoji||'') + ' ' + x.name) + '</td><td>' + esc(x.category||'-') + '</td><td>' + fmt(x.price) + '</td><td>' + x.quantity + '</td><td class="amt"><b>' + fmt(x.total) + '</b></td></tr>';
+    }).join('') : '<tr><td colspan="5">Ürün satışı yok</td></tr>';
+    h += '</tbody></table>';
+
+    var sessions = de.session_details && de.session_details.length ? de.session_details : [];
+    h += '<h3>🖥️ Açılan Oturumlar</h3>';
+    h += '<table><thead><tr><th>İstasyon</th><th>Saat</th><th>Süre</th><th>Ödeme</th><th>İçecek</th><th>İndirim</th><th class="amt">Toplam</th></tr></thead><tbody>';
+    h += sessions.length ? sessions.map(function(s){
+      var extra = Number(s.extra_controllers||0) > 0 ? ' 🎮+' + s.extra_controllers : '';
+      var disc = Number(s.discount||0) > 0 ? '-' + fmt(s.discount) : '—';
+      return '<tr><td>' + esc(s.station_name) + '</td><td>' + fmtTime(s.start_time) + ' → ' + fmtTime(s.end_time) + '</td><td>' + dur(s.duration_minutes) + '</td><td>' + esc(s.payment_method||'-') + extra + '</td><td>' + fmt(s.drink_total||0) + '</td><td>' + disc + '</td><td class="amt"><b>' + fmt(s.total) + '</b></td></tr>';
+    }).join('') : '<tr><td colspan="7">Oturum yok</td></tr>';
+    h += '</tbody></table>';
     h += '<p class="rf">Oluşturulma: ' + new Date().toLocaleString('tr-TR') + '</p>';
     el.innerHTML = h;
-  }
-
-  function rankItem(i, name, sub, total){
-    var cls = 'rk' + (i+1);
-    return '<div class="rank-item ' + (i < 3 ? cls : '') + '">' +
-      '<div class="rk">' + (i+1) + '</div>' +
-      '<div class="rk-body"><div class="rk-name">' + esc(name) + '</div><div class="rk-sub">' + esc(sub) + '</div></div>' +
-      '<div class="rk-total">' + total + '</div></div>';
   }
 
   function renderUrunler(drinks){

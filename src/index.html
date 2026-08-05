@@ -198,7 +198,12 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="stations-grid"></div>
                 </div>
             </div>
-            <div id="web-card" class="glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
+            <div id="web-unlock-wrap" class="hidden flex justify-center">
+                <button onclick="openDevPassModal()" class="px-6 py-3 bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/60 rounded-xl text-sm font-medium transition flex items-center gap-2">
+                    🔐 Web Görüntüleme — Geliştirici Erişimi
+                </button>
+            </div>
+            <div id="web-card" class="hidden glass rounded-2xl p-4 border-l-2 border-l-cyan-400">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-lg font-semibold flex items-center gap-2">📱 Web Görüntüleme</h2>
                     <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/70 text-slate-300" id="web-status">⏳ başlatılıyor...</span>
@@ -249,6 +254,7 @@
                         <input type="number" id="low-stock-threshold-input" value="5" min="0" class="w-16 bg-slate-800/80 border border-slate-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-cyan-500">
                         <button onclick="saveLowStockThreshold()" class="px-2 py-1 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-xs font-medium transition" title="Kaydet">Kaydet</button>
                     </div>
+                    <button onclick="openStockReport()" id="stock-report-btn" class="hidden px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition flex items-center gap-2">📦 Stok Raporu</button>
                     <button onclick="openAddDrinkModal()" id="add-drink-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition flex items-center gap-2">+ Yeni Ürün Ekle</button>
                 </div>
             </div>
@@ -423,7 +429,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                            <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">İstasyon</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">İçecek</th><th class="p-3 font-medium">İndirim</th><th class="p-3 font-medium">Toplam</th><th class="p-3 font-medium">Ödeme</th><th class="p-3 font-medium">Fiş</th>
+                            <th class="p-3 font-medium">Tarih</th><th class="p-3 font-medium">İstasyon</th><th class="p-3 font-medium">Süre</th><th class="p-3 font-medium">Oturum</th><th class="p-3 font-medium">İçecek</th><th class="p-3 font-medium">İndirim</th><th class="p-3 font-medium">Toplam</th><th class="p-3 font-medium">Ödeme</th><th class="p-3 font-medium">Fiş</th><th class="p-3 font-medium" id="hist-del-header">Sil</th>
                         </tr></thead>
                         <tbody id="history-body"><tr><td colspan="9" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr></tbody>
                     </table>
@@ -481,7 +487,14 @@
                     <h2 class="text-xl font-semibold">📜 Loglar</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Son 200 sistem işlemi — denetim kaydı</p>
                 </div>
-                <button onclick="renderAuditLog()" class="px-3 py-2 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-sm font-medium transition">🔄 Yenile</button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="date" id="log-filter-start" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-500" title="Başlangıç tarihi">
+                    <span class="text-slate-500">-</span>
+                    <input type="date" id="log-filter-end" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-500" title="Bitiş tarihi">
+                    <button onclick="renderAuditLog()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium transition">🔍 Filtrele</button>
+                    <button onclick="clearLogFilter()" class="px-3 py-1.5 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm transition">Temizle</button>
+                    <button onclick="renderAuditLog()" class="px-3 py-2 bg-slate-700/60 hover:bg-slate-600/60 rounded-lg text-sm font-medium transition">🔄 Yenile</button>
+                </div>
             </div>
             <div class="glass rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
@@ -990,6 +1003,39 @@
         </div>
     </div>
 
+    <!-- Geliştirici Şifresi -->
+    <div id="modal-dev-pass" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-dev-pass')">
+        <div class="glass rounded-2xl p-8 w-[400px] slide-in">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold">🔐 Geliştirici Erişimi</h3>
+                <button onclick="closeModal('modal-dev-pass')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
+            </div>
+            <div class="space-y-4">
+                <p class="text-sm text-slate-400 leading-relaxed">Web görüntüleme kartı yalnızca geliştiriciye özeldir. Devam etmek için geliştirici şifresini girin.</p>
+                <input type="password" id="dev-pass-input" placeholder="Geliştirici şifresi" autocomplete="off" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" onkeydown="if(event.key==='Enter')checkDevPass()">
+                <p id="dev-pass-error" class="hidden text-red-400 text-sm"></p>
+                <button onclick="checkDevPass()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-medium transition">Doğrula</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stok Raporu -->
+    <div id="modal-stock-report" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-stock-report')">
+        <div class="glass rounded-2xl w-[min(1100px,96vw)] max-h-[90vh] flex flex-col slide-in">
+            <div class="flex items-center justify-between p-6 pb-4 border-b border-slate-700/50">
+                <div>
+                    <h3 class="text-xl font-bold">📦 Stok Raporu</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Tüm ürünlerin güncel stok ve satış durumu — <span id="stock-report-date"></span></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="printStockReport()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-xl text-sm font-medium transition">🖨️ Yazdır</button>
+                    <button onclick="closeModal('modal-stock-report')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
+                </div>
+            </div>
+            <div id="stock-report-content" class="p-6 overflow-y-auto"><div class="text-center text-slate-500 py-16">Rapor hazırlanıyor...</div></div>
+        </div>
+    </div>
+
     <!-- İçecek Ekle -->
     <div id="modal-order-drink" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-order-drink')">
         <div class="glass rounded-2xl p-8 w-[480px] slide-in">
@@ -1211,6 +1257,30 @@
                     if (info.url) document.getElementById('sb-url').value = info.url;
                     if (info.panelUrl) document.getElementById('sb-panel').value = info.panelUrl;
                 } catch (e) { /* yoksay */ }
+            }
+        }
+
+        function openDevPassModal() {
+            document.getElementById('dev-pass-input').value = '';
+            document.getElementById('dev-pass-error').classList.add('hidden');
+            openModal('modal-dev-pass');
+            setTimeout(function () { document.getElementById('dev-pass-input').focus(); }, 100);
+        }
+
+        function checkDevPass() {
+            const pass = document.getElementById('dev-pass-input').value;
+            const err = document.getElementById('dev-pass-error');
+            if (pass === 'Dev2026') {
+                err.classList.add('hidden');
+                window.__webUnlocked = true;
+                closeModal('modal-dev-pass');
+                document.getElementById('web-unlock-wrap').classList.add('hidden');
+                document.getElementById('web-card').classList.remove('hidden');
+                showToast('Web Görüntüleme kartı açıldı');
+            } else {
+                err.textContent = 'Hatalı şifre. Bu kart yalnızca geliştiriciye özeldir.';
+                err.classList.remove('hidden');
+                document.getElementById('dev-pass-input').value = '';
             }
         }
 
@@ -1556,6 +1626,99 @@
             try { await invoke('adjust_stock', { drinkId: id, change: change, reason: reason }); showToast('Stok güncellendi'); closeModal('modal-adjust-stock'); loadDrinks(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
+        async function openStockReport() {
+            openModal('modal-stock-report');
+            document.getElementById('stock-report-content').innerHTML = '<div class="text-center text-slate-500 py-16">Rapor hazırlanıyor...</div>';
+            try {
+                const report = await invoke('get_stock_report');
+                window.__stockReport = report;
+                renderStockReport(report);
+            } catch (e) { document.getElementById('stock-report-content').innerHTML = '<div class="text-center text-red-400 py-16">Hata: ' + escHtml(String(e)) + '</div>'; }
+        }
+
+        function stockStatusBadge(status) {
+            var map = { 'Sınırsız': 'bg-slate-600/60 text-slate-300', 'Tükendi': 'bg-red-600/25 text-red-300', 'Düşük': 'bg-amber-600/25 text-amber-300', 'Yeterli': 'bg-emerald-600/25 text-emerald-300' };
+            return '<span class="px-2 py-0.5 rounded-full text-xs font-medium ' + (map[status] || 'bg-slate-700 text-slate-300') + '">' + escHtml(status) + '</span>';
+        }
+
+        function renderStockReport(r) {
+            document.getElementById('stock-report-date').textContent = r.date;
+            var summaryCards =
+                '<div class="glass rounded-xl p-4 border-l-2 border-l-blue-400"><div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Toplam Ürün</span><span class="text-xl">🧮</span></div><div class="text-3xl font-semibold text-blue-300">' + r.total_items + '</div><div class="text-slate-500 text-xs mt-1">' + r.active_items + ' satışa açık</div></div>' +
+                '<div class="glass rounded-xl p-4 border-l-2 border-l-emerald-400"><div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Stok Değeri</span><span class="text-xl">📦</span></div><div class="text-3xl font-semibold text-emerald-300">₺' + Number(r.total_stock_value).toFixed(2) + '</div><div class="text-slate-500 text-xs mt-1">Satış fiyatına göre</div></div>' +
+                '<div class="glass rounded-xl p-4 border-l-2 border-l-purple-400"><div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Maliyet Değeri</span><span class="text-xl">📊</span></div><div class="text-3xl font-semibold text-purple-300">₺' + Number(r.total_cost_value).toFixed(2) + '</div><div class="text-slate-500 text-xs mt-1">Potansiyel kâr ₺' + Number(r.total_profit).toFixed(2) + '</div></div>' +
+                '<div class="glass rounded-xl p-4 border-l-2 border-l-amber-400"><div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Durum Özeti</span><span class="text-xl">⚠️</span></div><div class="text-3xl font-semibold text-amber-300">' + r.low_items + '</div><div class="text-slate-500 text-xs mt-1">Düşük: ' + r.low_items + ' • Tükendi: ' + r.out_items + ' • Sınırsız: ' + r.unlimited_items + '</div></div>';
+            var rows = r.items.map(function (it) {
+                var stockTxt = it.stock < 0 ? '∞' : it.stock;
+                var stockColor = it.status === 'Tükendi' ? 'text-red-400' : it.status === 'Düşük' ? 'text-amber-400' : 'text-emerald-400';
+                var activeBadge = it.is_active === 1 ? '<span class="text-emerald-400 text-xs">Aktif</span>' : '<span class="text-slate-500 text-xs">Gizli</span>';
+                var minTxt = it.min_stock >= 0 ? it.min_stock : '—';
+                var lastMove = it.last_movement_at ? fmtClock(it.last_movement_at) : '—';
+                return '<tr class="border-b border-slate-700/30 hover:bg-slate-800/30 transition">' +
+                    '<td class="p-3"><span class="font-medium">' + escHtml(it.emoji || '🥤') + ' ' + escHtml(it.name) + '</span> ' + activeBadge + '</td>' +
+                    '<td class="p-3 text-slate-400">' + escHtml(it.category || '-') + '</td>' +
+                    '<td class="p-3 text-right text-slate-300">₺' + Number(it.price).toFixed(2) + '</td>' +
+                    '<td class="p-3 text-right text-slate-400">₺' + Number(it.cost).toFixed(2) + '</td>' +
+                    '<td class="p-3 text-right text-xl font-bold ' + stockColor + '">' + stockTxt + '</td>' +
+                    '<td class="p-3 text-right text-slate-400">' + minTxt + '</td>' +
+                    '<td class="p-3">' + stockStatusBadge(it.status) + '</td>' +
+                    '<td class="p-3 text-right">' + it.sold_today + ' <span class="text-slate-500 text-xs">(' + it.sold_total + ')</span></td>' +
+                    '<td class="p-3 text-right font-bold text-amber-400">₺' + Number(it.revenue_total).toFixed(2) + '</td>' +
+                    '<td class="p-3 text-right text-slate-300">₺' + Number(it.value).toFixed(2) + '</td>' +
+                    '<td class="p-3 text-slate-500 text-xs">' + lastMove + '</td>' +
+                    '</tr>';
+            }).join('');
+            var empty = '<tr><td colspan="11" class="p-8 text-center text-slate-500">Kayıtlı ürün yok</td></tr>';
+            document.getElementById('stock-report-content').innerHTML =
+                '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">' + summaryCards + '</div>' +
+                '<div class="overflow-x-auto"><table class="w-full text-left">' +
+                '<thead><tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">' +
+                '<th class="p-3 font-medium">Ürün</th><th class="p-3 font-medium">Kategori</th><th class="p-3 font-medium text-right">Satış</th><th class="p-3 font-medium text-right">Maliyet</th><th class="p-3 font-medium text-right">Stok</th><th class="p-3 font-medium text-right">Min</th><th class="p-3 font-medium">Durum</th><th class="p-3 font-medium text-right">Satılan (Tümü)</th><th class="p-3 font-medium text-right">Ciro</th><th class="p-3 font-medium text-right">Stok Değeri</th><th class="p-3 font-medium">Son Hareket</th>' +
+                '</tr></thead><tbody>' + (r.items.length ? rows : empty) + '</tbody></table></div>';
+        }
+
+        function printStockReport() {
+            var r = window.__stockReport;
+            if (!r) { showToast('Önce raporu yükleyin', 'error'); return; }
+            var tStyle = 'width:100%;border-collapse:collapse;font-size:10px;margin:6px 0 12px;';
+            var thStyle = 'padding:4px 6px;border-bottom:1px solid #999;text-align:left;font-weight:700;text-transform:uppercase;font-size:8px;letter-spacing:.04em;';
+            var tdStyle = 'padding:4px 6px;border-bottom:1px solid #ddd;';
+            var tdRStyle = 'padding:4px 6px;border-bottom:1px solid #ddd;text-align:right;';
+            var rows = r.items.map(function (it) {
+                var stockTxt = it.stock < 0 ? 'Sınırsız' : it.stock;
+                return '<tr><td style="' + tdStyle + '">' + escHtml(it.emoji || '') + ' ' + escHtml(it.name) + '</td>' +
+                    '<td style="' + tdStyle + '">' + escHtml(it.category || '-') + '</td>' +
+                    '<td style="' + tdRStyle + '">₺' + Number(it.price).toFixed(2) + '</td>' +
+                    '<td style="' + tdRStyle + '">₺' + Number(it.cost).toFixed(2) + '</td>' +
+                    '<td style="' + tdRStyle + '"><b>' + stockTxt + '</b></td>' +
+                    '<td style="' + tdRStyle + '">' + (it.min_stock >= 0 ? it.min_stock : '—') + '</td>' +
+                    '<td style="' + tdStyle + '">' + escHtml(it.status) + '</td>' +
+                    '<td style="' + tdRStyle + '">' + it.sold_today + ' (' + it.sold_total + ')</td>' +
+                    '<td style="' + tdRStyle + '">₺' + Number(it.revenue_total).toFixed(2) + '</td>' +
+                    '<td style="' + tdRStyle + '">₺' + Number(it.value).toFixed(2) + '</td></tr>';
+            }).join('');
+            var html =
+                '<div class="text-center mb-3">' +
+                '<div class="text-2xl mb-1">🎮</div>' +
+                '<div class="text-base font-bold tracking-wide">OYUN KAFE YÖNETİM</div>' +
+                '<div class="text-xs text-gray-500">Stok Raporu — ' + r.date + '</div></div>' +
+                '<div class="border-t-2 border-dashed border-black my-2"></div>' +
+                '<div class="text-sm"><div class="flex justify-between"><span>Toplam Ürün</span><span>' + r.total_items + '</span></div>' +
+                '<div class="flex justify-between"><span>Satışa Açık</span><span>' + r.active_items + '</span></div>' +
+                '<div class="flex justify-between"><span>Düşük Stok</span><span>' + r.low_items + '</span></div>' +
+                '<div class="flex justify-between"><span>Tükendi</span><span>' + r.out_items + '</span></div>' +
+                '<div class="flex justify-between"><span>Stok Değeri (satış)</span><span>₺' + Number(r.total_stock_value).toFixed(2) + '</span></div>' +
+                '<div class="flex justify-between"><span>Maliyet Değeri</span><span>₺' + Number(r.total_cost_value).toFixed(2) + '</span></div>' +
+                '<div class="flex justify-between"><span>Potansiyel Kâr</span><span class="font-bold">₺' + Number(r.total_profit).toFixed(2) + '</span></div></div>' +
+                '<div class="border-t-2 border-dashed border-black my-2"></div>' +
+                '<div class="text-xs font-bold mb-1">Ürün Bazlı Detay — ' + r.items.length + ' ürün</div>' +
+                '<table style="' + tStyle + '"><thead><tr>' +
+                '<th style="' + thStyle + '">Ürün</th><th style="' + thStyle + '">Kategori</th><th style="' + thStyle + '">Satış</th><th style="' + thStyle + '">Maliyet</th><th style="' + thStyle + '">Stok</th><th style="' + thStyle + '">Min</th><th style="' + thStyle + '">Durum</th><th style="' + thStyle + '">Satılan (Tümü)</th><th style="' + thStyle + '">Ciro</th><th style="' + thStyle + '">Stok Değeri</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table>' +
+                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • Oyun Kafe Yönetim</div>';
+            printHTML(html);
+        }
+
         async function loadStationDrinks() {
             try {
                 const sessions = await invoke('get_active_sessions');
@@ -1590,7 +1753,7 @@
                         }
                     }
                     html += `</div>
-                        <button onclick="openDrinksForStation('${s.station_id}')" class="w-full py-1.5 bg-cyan-600/60 hover:bg-cyan-500 rounded-lg text-xs font-medium transition">+ İçecek Ekle</button>
+                        <button onclick="openDrinksForStation('${s.station_id}')" class="w-full py-1.5 bg-cyan-600/60 hover:bg-cyan-500 rounded-lg text-xs font-medium transition">+ Masaya Ürün Ekle</button>
                     </div>`;
                 }
                 html += '</div>';
@@ -1604,34 +1767,28 @@
                 const sessions = await invoke('get_active_sessions');
                 const session = sessions.find(s => s.station_id === stationId);
                 if (!session) return;
-                const listHtml = drinks.map(d => {
-                    const disabled = d.stock === 0;
-                    const stockClass = d.stock <= 3 ? 'text-red-400' : d.stock <= 10 ? 'text-amber-400' : 'text-emerald-400';
-                    return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-700/50"'} class="flex items-center justify-between p-3 rounded-xl transition border border-slate-700/50 hover:border-slate-600/50">
-                        <div class="flex items-center gap-3">
-                            <span class="text-2xl">${escHtml(d.emoji || '🥤')}</span>
-                            <div class="text-left">
-                                <div class="text-sm font-medium text-white">${escHtml(d.name)}</div>
-                                <div class="text-xs ${stockClass}">${d.stock >= 0 ? `Stok: ${d.stock}` : 'Sınırsız'}</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-amber-400">₺${d.price.toFixed(2)}</div>
-                            ${disabled ? '<div class="text-xs text-red-400">Tükendi</div>' : ''}
-                        </div>
-                    </button>`;
-                }).join('');
+
+                window.__quickStationId = stationId;
+                window.__quickDrinks = drinks;
+
                 let dropdown = document.getElementById('quick-add-drink-dropdown');
                 if (!dropdown) { dropdown = document.createElement('div'); dropdown.id = 'quick-add-drink-dropdown'; document.body.appendChild(dropdown); }
-                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-80 max-h-96 overflow-y-auto';
+                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-[560px] max-w-[95vw] max-h-[80vh] overflow-y-auto';
                 dropdown.innerHTML = `
                     <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
-                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)}</div>
+                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)} — Masaya Ürün Ekle</div>
                         <button onclick="closeQuickAddDrink()" class="text-slate-400 hover:text-white transition p-1">✕</button>
                     </div>
-                    <div class="space-y-2">${listHtml}</div>
+                    <div class="mb-3">
+                        <input id="quick-add-filter" oninput="renderQuickAddList()" placeholder="🔍 Ürün adı veya kategori ara..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 placeholder:text-slate-500">
+                    </div>
+                    <div id="quick-add-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto"></div>
                 `;
-                dropdown.style.top = '50%'; dropdown.style.left = '50%'; dropdown.style.transform = 'translate(-50%, -50%)';
+                dropdown.style.top = '50%';
+                dropdown.style.left = '50%';
+                dropdown.style.transform = 'translate(-50%, -50%)';
+                renderQuickAddList();
+                setTimeout(function () { var f = document.getElementById('quick-add-filter'); if (f) f.focus(); }, 50);
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
@@ -1664,7 +1821,7 @@
                     dropdown.id = 'quick-add-drink-dropdown';
                     document.body.appendChild(dropdown);
                 }
-                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-96 max-h-[75vh] overflow-y-auto';
+                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-[560px] max-w-[95vw] max-h-[80vh] overflow-y-auto';
                 dropdown.innerHTML = `
                     <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
                         <div class="text-sm font-semibold text-white">${escHtml(session.station_name)} — ürün ekle</div>
@@ -1673,7 +1830,7 @@
                     <div class="mb-3">
                         <input id="quick-add-filter" oninput="renderQuickAddList()" placeholder="🔍 Ürün adı veya kategori ara..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 placeholder:text-slate-500">
                     </div>
-                    <div id="quick-add-list" class="divide-y divide-slate-600/50 border border-slate-600/70 rounded-xl overflow-hidden max-h-64 overflow-y-auto"></div>
+                    <div id="quick-add-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto"></div>
                 `;
                 dropdown.style.top = '50%';
                 dropdown.style.left = '50%';
@@ -1692,11 +1849,11 @@
                 if (!q) return true;
                 return ((d.name || '') + ' ' + (d.category || '')).toLowerCase().indexOf(q) >= 0;
             });
-            if (!drinks.length) { list.innerHTML = '<div class="text-center text-slate-500 text-sm py-6">Ürün bulunamadı</div>'; return; }
+            if (!drinks.length) { list.innerHTML = '<div class="text-center text-slate-500 text-sm py-6 col-span-2">Ürün bulunamadı</div>'; return; }
             list.innerHTML = drinks.map(function (d) {
                 const disabled = d.stock === 0;
                 const stockClass = d.stock <= 3 ? 'text-red-400' : d.stock <= 10 ? 'text-amber-400' : 'text-emerald-400';
-                return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled' : ''} class="w-full flex items-center justify-between p-3 transition ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-700/50'}">
+                return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled' : ''} class="flex items-center justify-between p-3 rounded-xl transition border ${disabled ? 'opacity-40 cursor-not-allowed border-slate-700/40' : 'border-slate-600/60 hover:border-cyan-500/70 hover:bg-slate-700/40'}">
                     <div class="flex items-center gap-3 min-w-0">
                         <span class="text-2xl flex-none">${escHtml(d.emoji || '🥤')}</span>
                         <div class="text-left min-w-0">
@@ -1835,7 +1992,7 @@
                     const diffMins = Math.max(0, Math.floor((end - start) / 60000));
                     document.getElementById('end-duration').textContent = diffMins + ' dk';
                     const pricing = await invoke('get_pricing');
-                    const perMinute = (payment === 'kart' || payment === 'iban') ? pricing.card_per_minute : pricing.cash_per_minute;
+                    const perMinute = (payment === 'kart') ? pricing.card_per_minute : pricing.cash_per_minute;
                     const roundMinutes = pricing.round_minutes || 1;
                     const roundedMins = Math.ceil(diffMins / roundMinutes) * roundMinutes;
                     baseFee = Math.max(roundedMins * perMinute, pricing.min_charge || 0);
@@ -2198,12 +2355,14 @@
         function renderHistory(records) {
             const tbody = document.getElementById('history-body');
             var summary = document.getElementById('hist-summary-label');
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            document.getElementById('hist-del-header').classList.toggle('hidden', !isAdmin);
             if (records.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="10" class="p-12 text-center text-slate-500">Henüz kayıt bulunmuyor</td></tr>';
                 if (summary) summary.textContent = 'Henüz veri yok';
                 return;
             }
-            const paymentLabels = { nakit: '💵 Nakit', kart: '💳 Kart' };
+            const paymentLabels = { nakit: '💵 Nakit', kart: '💳 Kart', iban: '🏦 IBAN' };
             var totalRevenue = records.reduce(function (s, h) { return s + Number(h.total || 0); }, 0);
             var totalDrinks = records.reduce(function (s, h) { return s + Number(h.drink_total || 0); }, 0);
             if (summary) summary.textContent = records.length + ' kayıt • Toplam gelir ₺' + totalRevenue.toFixed(2) + ' • İçecek ₺' + totalDrinks.toFixed(2);
@@ -2213,6 +2372,9 @@
                 const discountCell = Number(h.discount || 0) > 0
                     ? '<span class="text-red-400 font-medium">-₺' + Number(h.discount).toFixed(2) + '</span>'
                     : '<span class="text-slate-600">—</span>';
+                const delCell = isAdmin
+                    ? `<button onclick="deleteHistory('${h.id}')" class="px-2.5 py-1.5 bg-red-600/70 hover:bg-red-500 rounded-lg text-xs transition" title="Geçmiş kaydını sil">🗑️</button>`
+                    : '';
                 return `<tr class="border-b border-slate-700/30 hover:bg-slate-800/30 transition">
                     <td class="p-3 text-slate-300 text-xs">${end.toLocaleDateString('tr-TR')} <span class="text-slate-500">${end.toLocaleTimeString('tr-TR')}</span></td>
                     <td class="p-3 font-semibold text-cyan-400">${escHtml(h.station_name)} ${noteIcon}</td>
@@ -2223,8 +2385,15 @@
                     <td class="p-3 font-bold text-white">₺${h.total.toFixed(2)}</td>
                     <td class="p-3 text-sm text-slate-400">${paymentLabels[h.payment_method] || h.payment_method}</td>
                     <td class="p-3"><button onclick="openReceipt('${h.id}')" class="px-2.5 py-1.5 bg-slate-700/70 hover:bg-cyan-600/40 rounded-lg text-xs transition" title="Fiş yazdır">🧾</button></td>
+                    <td class="p-3">${delCell}</td>
                 </tr>`;
             }).join('');
+        }
+
+        async function deleteHistory(id) {
+            if (!(currentUser && currentUser.role === 'admin')) { showToast('Bu işlem için yönetici yetkisi gerekli!', 'error'); return; }
+            if (!confirm('Bu oturum geçmişi kaydı kalıcı olarak silinecek (içecekler ve kısmi ödemeler dahil). Emin misiniz?')) return;
+            try { await invoke('delete_history', { historyId: id }); showToast('Kayıt silindi'); loadHistory(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         async function applyHistoryFilter() {
@@ -2323,6 +2492,8 @@
             try { await invoke('logout'); } catch (e) { console.error(e); }
             stopLiveUpdates();
             currentUser = null;
+            window.__webUnlocked = false;
+            document.getElementById('web-card').classList.add('hidden');
             document.getElementById('app').classList.add('hidden');
             document.getElementById('login-overlay').classList.remove('hidden');
             document.getElementById('login-username').value = '';
@@ -2339,8 +2510,10 @@
             document.getElementById('tab-btn-logs').classList.toggle('hidden', !isAdmin);
             document.getElementById('low-stock-setting').classList.toggle('hidden', !isAdmin);
             document.getElementById('add-drink-btn').classList.toggle('hidden', !isAdmin);
+            document.getElementById('stock-report-btn').classList.toggle('hidden', !isAdmin);
             document.getElementById('add-station-btn').classList.toggle('hidden', !isAdmin);
-            document.getElementById('web-card').classList.toggle('hidden', !isAdmin);
+            document.getElementById('web-unlock-wrap').classList.toggle('hidden', !isAdmin);
+            if (!window.__webUnlocked) document.getElementById('web-card').classList.add('hidden');
             document.getElementById('clear-history-btn').classList.toggle('hidden', !isAdmin);
             if (!isAdmin && currentTab === 'personel') switchTab('dashboard');
             if (!isAdmin && currentTab === 'logs') switchTab('dashboard');
@@ -2477,7 +2650,9 @@
 
         async function renderAuditLog() {
             try {
-                var logs = await invoke('get_audit_log', { limit: 200 });
+                var sd = document.getElementById('log-filter-start').value || null;
+                var ed = document.getElementById('log-filter-end').value || null;
+                var logs = await invoke('get_audit_log', { limit: 200, startDate: sd, endDate: ed });
                 var body = document.getElementById('audit-body');
                 if (!logs.length) { body.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">Kayıt yok</td></tr>'; return; }
                 body.innerHTML = logs.map(function (l) {
@@ -2491,6 +2666,12 @@
             } catch (e) {
                 document.getElementById('audit-body').innerHTML = '<tr><td colspan="5" class="p-8 text-center text-red-400">' + escHtml(String(e)) + '</td></tr>';
             }
+        }
+
+        function clearLogFilter() {
+            document.getElementById('log-filter-start').value = '';
+            document.getElementById('log-filter-end').value = '';
+            renderAuditLog();
         }
 
         // ─── Fiş ───────────────────────────────────────────
@@ -2702,7 +2883,7 @@
         document.addEventListener('DOMContentLoaded', () => { initAuth(); });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt'].forEach(id => closeModal(id));
+                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt', 'modal-stock-report', 'modal-dev-pass'].forEach(id => closeModal(id));
             }
             if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
         });

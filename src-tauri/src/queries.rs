@@ -15,12 +15,13 @@ pub fn scalar_f64(conn: &Connection, sql: &str, p: impl rusqlite::Params) -> f64
 }
 
 /// Ödeme yöntemine göre kullanılacak tarife tipini döndürür.
+/// Yalnızca "kart" ödemesi kart tarifesini kullanır; nakit ve IBAN nakit tarifesini kullanır.
 /// Kısmi ödeme durumunda ("kart+kısmi:...") ana yöntem dikkate alınır.
 pub fn rate_type_for<'a>(payment_method: &str, fallback: &'a str) -> &'a str {
     let primary = payment_method.split('+').next().unwrap_or("").trim().to_lowercase();
-    if primary.contains("kart") || primary.contains("iban") {
+    if primary.contains("kart") {
         "kart"
-    } else if primary.contains("nakit") {
+    } else if primary.contains("nakit") || primary.contains("iban") {
         "nakit"
     } else {
         fallback
@@ -366,6 +367,47 @@ pub fn day_end(conn: &Connection, date: &str) -> serde_json::Value {
         }
     }
 
+    let mut drink_details: Vec<serde_json::Value> = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT do.drink_name, SUM(do.quantity), SUM(do.total), COALESCE(d.category,''), COALESCE(d.emoji,''), COALESCE(d.price, do.price) \
+         FROM drink_orders do LEFT JOIN drinks d ON d.name = do.drink_name \
+         WHERE date(do.order_time) = ?1 GROUP BY do.drink_name ORDER BY SUM(do.total) DESC",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?, row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, f64>(5)?))
+        }) {
+            for r in rows.flatten() {
+                let (name, quantity, total, category, emoji, price) = r;
+                drink_details.push(json!({ "name": name, "quantity": quantity, "total": total, "category": category, "emoji": emoji, "price": price }));
+            }
+        }
+    }
+
+    let mut session_details: Vec<serde_json::Value> = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT station_name, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0), COALESCE(discount,0), COALESCE(extra_controllers,0), COALESCE(extra_fee,0), rate_type \
+         FROM session_history WHERE date(end_time) = ?1 ORDER BY end_time ASC",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |row| {
+            Ok((
+                row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?, row.get::<_, f64>(4)?, row.get::<_, String>(5)?,
+                row.get::<_, f64>(6)?, row.get::<_, f64>(7)?, row.get::<_, i64>(8)?,
+                row.get::<_, f64>(9)?, row.get::<_, String>(10)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (station_name, start_time, end_time, duration_minutes, total, payment_method, drink_total, discount, extra_controllers, extra_fee, rate_type) = r;
+                session_details.push(json!({
+                    "station_name": station_name, "start_time": start_time, "end_time": end_time,
+                    "duration_minutes": duration_minutes, "total": total, "payment_method": payment_method,
+                    "drink_total": drink_total, "discount": discount,
+                    "extra_controllers": extra_controllers, "extra_fee": extra_fee, "rate_type": rate_type,
+                }));
+            }
+        }
+    }
+
     json!({
         "date": date,
         "sessions": sessions,
@@ -380,6 +422,8 @@ pub fn day_end(conn: &Connection, date: &str) -> serde_json::Value {
         "partial_card": partial_card,
         "top_drinks": top_drinks,
         "top_stations": top_stations,
+        "drink_details": drink_details,
+        "session_details": session_details,
     })
 }
 
@@ -447,7 +491,7 @@ mod tests {
     fn rate_type_reflects_payment_method() {
         assert_eq!(rate_type_for("kart", "nakit"), "kart");
         assert_eq!(rate_type_for("nakit", "kart"), "nakit");
-        assert_eq!(rate_type_for("iban", "nakit"), "kart");
+        assert_eq!(rate_type_for("iban", "kart"), "nakit");
         assert_eq!(rate_type_for("kart+kısmi:nakit:50.00", "nakit"), "kart");
         assert_eq!(rate_type_for("nakit+kısmi:kart:50.00", "kart"), "nakit");
         assert_eq!(rate_type_for("", "kart"), "kart");
