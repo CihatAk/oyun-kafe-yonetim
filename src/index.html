@@ -114,16 +114,62 @@
                 box-shadow: none !important;
                 z-index: auto !important;
             }
-            #print-container .receipt {
-                max-width: none;
-                margin: 0;
-                padding: 0;
-                background: #ffffff !important;
-                color: #000 !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-            }
+        #print-container .receipt {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: #ffffff !important;
+            color: #000 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
         }
+    }
+
+    /* ─── Masaya Ürün Ekle hızlı menü ─────────────────────── */
+    .quick-add-backdrop { position: fixed; inset: 0; background: rgba(1, 4, 9, 0.6); z-index: 60; }
+    .quick-add-modal {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 61; width: min(600px, calc(100vw - 24px));
+        max-height: calc(100vh - 24px);
+        display: flex; flex-direction: column;
+        background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+    }
+    .quick-add-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 12px; border-bottom: 1px solid rgba(48, 54, 61, 0.6); flex: 0 0 auto; }
+    .quick-add-head h3 { font-size: 14px; font-weight: 600; color: #fff; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .quick-add-close { flex: 0 0 auto; background: none; border: none; color: #8b949e; font-size: 16px; cursor: pointer; padding: 4px 6px; line-height: 1; border-radius: 6px; }
+    .quick-add-close:hover { color: #fff; background: rgba(48, 54, 61, 0.6); }
+    .quick-add-body { padding: 12px 16px 16px; display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+    .quick-add-search {
+        width: 100%; box-sizing: border-box; background: #0d1117;
+        border: 1px solid #30363d; color: #e6edf3; border-radius: 6px;
+        padding: 9px 12px; font-size: 13px; font-family: inherit; outline: none; flex: 0 0 auto;
+    }
+    .quick-add-search:focus { border-color: #06b6d4; }
+    .quick-add-list {
+        margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 8px; overflow-y: auto; flex: 1 1 auto; min-height: 0; align-content: start;
+    }
+    .quick-add-item {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+        border: 1px solid rgba(48, 54, 61, 0.6); background: transparent; color: #fff;
+        cursor: pointer; font-family: inherit;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .quick-add-item:hover:not(:disabled) { border-color: rgba(6, 182, 212, 0.7); background: rgba(30, 41, 59, 0.4); }
+    .quick-add-item:disabled { opacity: 0.4; cursor: not-allowed; }
+    .quick-add-item .qai-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .quick-add-item .qai-emoji { font-size: 22px; flex: 0 0 auto; }
+    .quick-add-item .qai-info { min-width: 0; }
+    .quick-add-item .qai-name { font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .quick-add-item .qai-stock { font-size: 11px; margin-top: 2px; }
+    .qai-stock.ok { color: #34d399; } .qai-stock.warn { color: #fbbf24; } .qai-stock.low { color: #f87171; }
+    .quick-add-item .qai-price { flex: 0 0 auto; text-align: right; border-left: 1px solid rgba(48, 54, 61, 0.6); padding-left: 10px; }
+    .quick-add-item .qai-price .qai-amt { font-size: 13px; font-weight: 600; color: #fbbf24; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .quick-add-item .qai-price .qai-soldout { font-size: 11px; color: #f87171; margin-top: 1px; }
+    .quick-add-empty { grid-column: 1 / -1; text-align: center; color: #8b949e; font-size: 13px; padding: 28px 0; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -1771,34 +1817,35 @@
             } catch (e) { console.error(e); }
         }
 
+        function openQuickAddModal(stationId, title, drinks) {
+            window.__quickStationId = stationId;
+            window.__quickDrinks = drinks;
+
+            let wrap = document.getElementById('quick-add-drink-dropdown');
+            if (!wrap) { wrap = document.createElement('div'); wrap.id = 'quick-add-drink-dropdown'; document.body.appendChild(wrap); }
+            wrap.innerHTML = `
+                <div class="quick-add-backdrop" onclick="closeQuickAddDrink()"></div>
+                <div class="quick-add-modal" role="dialog" aria-label="Masaya Ürün Ekle">
+                    <div class="quick-add-head">
+                        <h3>${escHtml(title)}</h3>
+                        <button class="quick-add-close" onclick="closeQuickAddDrink()" title="Kapat">✕</button>
+                    </div>
+                    <div class="quick-add-body">
+                        <input id="quick-add-filter" class="quick-add-search" oninput="renderQuickAddList()" placeholder="🔍 Ürün adı veya kategori ara...">
+                        <div id="quick-add-list" class="quick-add-list"></div>
+                    </div>
+                </div>`;
+            renderQuickAddList();
+            setTimeout(function () { var f = document.getElementById('quick-add-filter'); if (f) f.focus(); }, 50);
+        }
+
         async function openDrinksForStation(stationId) {
             try {
                 const drinks = await invoke('get_drinks');
                 const sessions = await invoke('get_active_sessions');
                 const session = sessions.find(s => s.station_id === stationId);
                 if (!session) return;
-
-                window.__quickStationId = stationId;
-                window.__quickDrinks = drinks;
-
-                let dropdown = document.getElementById('quick-add-drink-dropdown');
-                if (!dropdown) { dropdown = document.createElement('div'); dropdown.id = 'quick-add-drink-dropdown'; document.body.appendChild(dropdown); }
-                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-[560px] max-w-[95vw] max-h-[80vh] overflow-y-auto';
-                dropdown.innerHTML = `
-                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
-                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)} — Masaya Ürün Ekle</div>
-                        <button onclick="closeQuickAddDrink()" class="text-slate-400 hover:text-white transition p-1">✕</button>
-                    </div>
-                    <div class="mb-3">
-                        <input id="quick-add-filter" oninput="renderQuickAddList()" placeholder="🔍 Ürün adı veya kategori ara..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 placeholder:text-slate-500">
-                    </div>
-                    <div id="quick-add-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto"></div>
-                `;
-                dropdown.style.top = '50%';
-                dropdown.style.left = '50%';
-                dropdown.style.transform = 'translate(-50%, -50%)';
-                renderQuickAddList();
-                setTimeout(function () { var f = document.getElementById('quick-add-filter'); if (f) f.focus(); }, 50);
+                openQuickAddModal(stationId, session.station_name + ' — Masaya Ürün Ekle', drinks);
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
@@ -1821,32 +1868,7 @@
                 const sessions = await invoke('get_active_sessions');
                 const session = sessions.find(s => s.station_id === stationId);
                 if (!session) { showToast('Oturum bulunamadı!', 'error'); return; }
-
-                window.__quickStationId = stationId;
-                window.__quickDrinks = drinks;
-
-                let dropdown = document.getElementById('quick-add-drink-dropdown');
-                if (!dropdown) {
-                    dropdown = document.createElement('div');
-                    dropdown.id = 'quick-add-drink-dropdown';
-                    document.body.appendChild(dropdown);
-                }
-                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-[560px] max-w-[95vw] max-h-[80vh] overflow-y-auto';
-                dropdown.innerHTML = `
-                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
-                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)} — ürün ekle</div>
-                        <button onclick="closeQuickAddDrink()" class="text-slate-400 hover:text-white transition p-1">✕</button>
-                    </div>
-                    <div class="mb-3">
-                        <input id="quick-add-filter" oninput="renderQuickAddList()" placeholder="🔍 Ürün adı veya kategori ara..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 placeholder:text-slate-500">
-                    </div>
-                    <div id="quick-add-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto"></div>
-                `;
-                dropdown.style.top = '50%';
-                dropdown.style.left = '50%';
-                dropdown.style.transform = 'translate(-50%, -50%)';
-                renderQuickAddList();
-                setTimeout(function () { var f = document.getElementById('quick-add-filter'); if (f) f.focus(); }, 50);
+                openQuickAddModal(stationId, session.station_name + ' — ürün ekle', drinks);
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
@@ -1859,22 +1881,24 @@
                 if (!q) return true;
                 return ((d.name || '') + ' ' + (d.category || '')).toLowerCase().indexOf(q) >= 0;
             });
-            if (!drinks.length) { list.innerHTML = '<div class="text-center text-slate-500 text-sm py-6 col-span-2">Ürün bulunamadı</div>'; return; }
+            if (!drinks.length) { list.innerHTML = '<div class="quick-add-empty">Ürün bulunamadı</div>'; return; }
             list.innerHTML = drinks.map(function (d) {
                 const disabled = d.stock === 0;
-                const stockClass = d.stock <= 3 ? 'text-red-400' : d.stock <= 10 ? 'text-amber-400' : 'text-emerald-400';
-                return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled' : ''} class="flex items-center justify-between p-3 rounded-xl transition border ${disabled ? 'opacity-40 cursor-not-allowed border-slate-700/40' : 'border-slate-600/60 hover:border-cyan-500/70 hover:bg-slate-700/40'}">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="text-2xl flex-none">${escHtml(d.emoji || '🥤')}</span>
-                        <div class="text-left min-w-0">
-                            <div class="text-sm font-medium text-white truncate">${escHtml(d.name)}</div>
-                            <div class="text-xs ${stockClass}">${d.stock >= 0 ? `Stok: ${d.stock}` : 'Sınırsız'}</div>
-                        </div>
-                    </div>
-                    <div class="text-right flex-none border-l border-slate-600/60 pl-3 ml-1">
-                        <div class="text-sm font-semibold text-amber-400">₺${d.price.toFixed(2)}</div>
-                        ${disabled ? '<div class="text-xs text-red-400">Tükendi</div>' : ''}
-                    </div>
+                const unlimited = d.stock === -1;
+                const stockText = unlimited ? 'Sınırsız' : 'Stok: ' + d.stock;
+                const stockCls = unlimited ? 'ok' : (d.stock <= 3 ? 'low' : (d.stock <= 10 ? 'warn' : 'ok'));
+                return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled' : ''} class="quick-add-item">
+                    <span class="qai-left">
+                        <span class="qai-emoji">${escHtml(d.emoji || '🥤')}</span>
+                        <span class="qai-info">
+                            <span class="qai-name">${escHtml(d.name)}</span>
+                            <span class="qai-stock ${stockCls}">${stockText}</span>
+                        </span>
+                    </span>
+                    <span class="qai-price">
+                        <span class="qai-amt">₺${d.price.toFixed(2)}</span>
+                        ${disabled ? '<div class="qai-soldout">Tükendi</div>' : ''}
+                    </span>
                 </button>`;
             }).join('');
         }
@@ -2894,6 +2918,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt', 'modal-stock-report', 'modal-dev-pass'].forEach(id => closeModal(id));
+                closeQuickAddDrink();
             }
             if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
         });
