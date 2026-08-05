@@ -32,7 +32,7 @@ pub fn get_dashboard_stats(state: State<AppState>) -> Result<serde_json::Value, 
 }
 
 #[tauri::command]
-pub fn calculate_live_fee(station_id: String, _payment_method: String, state: State<AppState>) -> Result<serde_json::Value, String> {
+pub fn calculate_live_fee(station_id: String, payment_method: String, state: State<AppState>) -> Result<serde_json::Value, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let (start_str, paused_at, total_paused, extra_controllers, rate_type, st_type): (String, Option<String>, i64, i64, String, String) = conn.query_row(
         "SELECT a.start_time, a.paused_at, COALESCE(a.total_paused_seconds,0), COALESCE(a.extra_controllers,0), COALESCE(a.rate_type,'nakit'), COALESCE(s.station_type,'standard') FROM active_sessions a LEFT JOIN stations s ON a.station_id=s.id WHERE a.station_id=?1",
@@ -40,11 +40,12 @@ pub fn calculate_live_fee(station_id: String, _payment_method: String, state: St
     ).map_err(|_| "Oturum bulunamadı")?;
     let now = Local::now();
     let start: chrono::DateTime<Local> = chrono::DateTime::parse_from_rfc3339(&start_str).map_err(|e| e.to_string())?.with_timezone(&Local);
+    let rate = crate::queries::rate_type_for(&payment_method, &rate_type);
     let total_secs = now.signed_duration_since(start).num_seconds().max(0);
     let (dur_mins, dur_secs, fee, extra_fee, is_paused) =
-        session_fee(&conn, &station_id, &rate_type, &start_str, paused_at.as_deref(), total_paused, extra_controllers);
+        session_fee(&conn, &station_id, rate, &start_str, paused_at.as_deref(), total_paused, extra_controllers);
     let pricing = AppState::load_pricing_conn(&conn);
-    let per_min = if rate_type == "nakit" { pricing.cash_per_minute } else { pricing.card_per_minute };
+    let per_min = if rate == "nakit" { pricing.cash_per_minute } else { pricing.card_per_minute };
     let paused_seconds = if let Some(ref p) = paused_at {
         if let Ok(pd) = chrono::DateTime::parse_from_rfc3339(p) {
             now.signed_duration_since(pd.with_timezone(&Local)).num_seconds().max(0)

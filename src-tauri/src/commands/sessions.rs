@@ -147,7 +147,8 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     let dur_mins = (eff_secs / 60).max(0);
 
     let pricing = AppState::load_pricing_conn(&conn);
-    let per_min = state.get_effective_rate(&st_type, &rate_type, &pricing);
+    let rate_used = crate::queries::rate_type_for(&payment_method, &rate_type).to_string();
+    let per_min = state.get_effective_rate(&st_type, &rate_used, &pricing);
     let round_mins = pricing.round_minutes.max(1);
     let chunks = ((dur_mins as f64) / (round_mins as f64)).ceil() as i64;
     let rounded_mins = chunks * round_mins;
@@ -210,7 +211,7 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
         let hist_id_inner = Uuid::new_v4().to_string();
         hist_id = hist_id_inner.clone();
         conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, discount_reason, notes, tags, extra_controllers, extra_fee) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
-            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_type, drink_total, discount, discount_reason_saved, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
+            params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_used, drink_total, discount, discount_reason_saved, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE drink_orders SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE partial_payments SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         let audit_detail = if discount > 0.0 {
@@ -228,5 +229,5 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     }
     conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
 
-    Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type, drink_total, discount, notes, tags, extra_controllers, extra_fee })
+    Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type: rate_used, drink_total, discount, notes, tags, extra_controllers, extra_fee })
 }

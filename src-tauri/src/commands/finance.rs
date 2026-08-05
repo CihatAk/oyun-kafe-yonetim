@@ -172,9 +172,36 @@ pub fn get_day_end_report(date: Option<String>, state: State<AppState>) -> Resul
         }
     }
 
+    // Detaylı ürün listesi (gün sonuna kadar satılan tüm ürünler)
+    let mut drink_details: Vec<DayEndDrinkDetail> = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT do.drink_name, SUM(do.quantity), SUM(do.total), COALESCE(d.category,''), COALESCE(d.emoji,''), COALESCE(d.price, do.price) \
+         FROM drink_orders do LEFT JOIN drinks d ON d.name = do.drink_name \
+         WHERE date(do.order_time) = ?1 GROUP BY do.drink_name ORDER BY SUM(do.total) DESC") {
+        if let Ok(rows) = stmt.query_map(params![d], |r| Ok(DayEndDrinkDetail {
+            name: r.get(0)?, quantity: r.get(1)?, total: r.get(2)?, category: r.get(3)?, emoji: r.get(4)?, price: r.get(5)?,
+        })) {
+            for r in rows.filter_map(|r| r.ok()) { drink_details.push(r); }
+        }
+    }
+
+    // Detaylı oturum listesi (gün içinde kapanan tüm oturumlar)
+    let mut session_details: Vec<DayEndSessionDetail> = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT station_name, start_time, end_time, duration_minutes, total, payment_method, COALESCE(drink_total,0), COALESCE(discount,0), COALESCE(extra_controllers,0), COALESCE(extra_fee,0), rate_type \
+         FROM session_history WHERE date(end_time) = ?1 ORDER BY end_time ASC") {
+        if let Ok(rows) = stmt.query_map(params![d], |r| Ok(DayEndSessionDetail {
+            station_name: r.get(0)?, start_time: r.get(1)?, end_time: r.get(2)?, duration_minutes: r.get(3)?,
+            total: r.get(4)?, payment_method: r.get(5)?, drink_total: r.get(6)?, discount: r.get(7)?,
+            extra_controllers: r.get(8)?, extra_fee: r.get(9)?, rate_type: r.get(10)?,
+        })) {
+            for r in rows.filter_map(|r| r.ok()) { session_details.push(r); }
+        }
+    }
+
     Ok(DayEndReport {
         date: d, sessions, total_revenue, total_discount, drink_revenue, avg_duration_minutes,
         cash_revenue, card_revenue, other_revenue, partial_cash, partial_card,
-        top_drinks, top_stations,
+        top_drinks, top_stations, drink_details, session_details,
     })
 }

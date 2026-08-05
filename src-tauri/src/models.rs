@@ -146,6 +146,31 @@ pub struct ReceiptData {
 }
 
 #[derive(Clone, Serialize, Debug)]
+pub struct DayEndDrinkDetail {
+    pub name: String,
+    pub quantity: i64,
+    pub total: f64,
+    pub category: String,
+    pub emoji: String,
+    pub price: f64,
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub struct DayEndSessionDetail {
+    pub station_name: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub duration_minutes: i64,
+    pub total: f64,
+    pub payment_method: String,
+    pub drink_total: f64,
+    pub discount: f64,
+    pub extra_controllers: i64,
+    pub extra_fee: f64,
+    pub rate_type: String,
+}
+
+#[derive(Clone, Serialize, Debug)]
 pub struct DayEndReport {
     pub date: String,
     pub sessions: i64,
@@ -160,4 +185,6 @@ pub struct DayEndReport {
     pub partial_card: f64,
     pub top_drinks: Vec<(String, i64, f64)>,
     pub top_stations: Vec<(String, i64, f64)>,
+    pub drink_details: Vec<DayEndDrinkDetail>,
+    pub session_details: Vec<DayEndSessionDetail>,
 }

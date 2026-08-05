@@ -14,6 +14,19 @@ pub fn scalar_f64(conn: &Connection, sql: &str, p: impl rusqlite::Params) -> f64
     conn.query_row(sql, p, |r| r.get::<_, f64>(0)).unwrap_or(0.0)
 }
 
+/// Ödeme yöntemine göre kullanılacak tarife tipini döndürür.
+/// Kısmi ödeme durumunda ("kart+kısmi:...") ana yöntem dikkate alınır.
+pub fn rate_type_for<'a>(payment_method: &str, fallback: &'a str) -> &'a str {
+    let primary = payment_method.split('+').next().unwrap_or("").trim().to_lowercase();
+    if primary.contains("kart") || primary.contains("iban") {
+        "kart"
+    } else if primary.contains("nakit") {
+        "nakit"
+    } else {
+        fallback
+    }
+}
+
 pub fn session_fee(
     conn: &Connection,
     _station_id: &str,
@@ -428,5 +441,15 @@ mod tests {
         let stations = ov["stations"].as_array().unwrap();
         let s = stations.iter().find(|x| x["id"] == "pc-test").unwrap();
         assert_eq!(s["status"], "paused");
+    }
+
+    #[test]
+    fn rate_type_reflects_payment_method() {
+        assert_eq!(rate_type_for("kart", "nakit"), "kart");
+        assert_eq!(rate_type_for("nakit", "kart"), "nakit");
+        assert_eq!(rate_type_for("iban", "nakit"), "kart");
+        assert_eq!(rate_type_for("kart+kısmi:nakit:50.00", "nakit"), "kart");
+        assert_eq!(rate_type_for("nakit+kısmi:kart:50.00", "kart"), "nakit");
+        assert_eq!(rate_type_for("", "kart"), "kart");
     }
 }
