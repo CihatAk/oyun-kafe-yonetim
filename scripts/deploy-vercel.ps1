@@ -1,4 +1,4 @@
-# Oyun Kafe Mobil Panel - Vercel deploy betigi
+# JiJi Game Center - Mobil Panel - Vercel deploy betigi
 # 1) src-tauri/web/index.html'daki token'lari doldurur
 # 2) panel-deploy/ klasorune (index.html + vercel.json) yazar
 # 3) vercel CLI ile production deploy eder

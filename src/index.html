@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oyun Kafe Yönetim Paneli</title>
+    <title>JiJi Game Center - PlayStation & VR</title>
     <link rel="stylesheet" href="./tailwind.css">
     <script src="./chart.umd.min.js"></script>
     <style>
         html { color-scheme: dark; }
         * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; }
         body { background: #0d1117; color: #e6edf3; }
+
+        * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; }
+        input, textarea, select { -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; }
 
         .glass { background: #161b22; border: 1px solid #30363d; }
         .rounded-2xl { border-radius: 12px !important; }
@@ -179,7 +182,7 @@
                 <div class="flex items-center gap-3">
                     <div class="gh-logo">🎮</div>
                     <div>
-                        <h1 class="text-lg font-semibold text-slate-300 leading-tight">Oyun Kafe Yönetim Paneli</h1>
+                        <h1 class="text-lg font-semibold text-slate-300 leading-tight">JiJi Game Center - PlayStation & VR</h1>
                         <p class="text-xs text-slate-500">Saatlik ücret takip ve yönetim sistemi</p>
                     </div>
                 </div>
@@ -568,7 +571,7 @@
         <div class="glass rounded-xl p-10 w-[420px] slide-in border border-slate-600">
             <div class="flex flex-col items-center mb-8">
                 <div class="gh-logo w-16 h-16 text-3xl mb-4">🎮</div>
-                <h3 class="text-2xl font-semibold">Oyun Kafe Yönetim</h3>
+                <h3 class="text-2xl font-semibold">JiJi Game Center - PlayStation & VR</h3>
                 <p class="text-slate-400 text-sm">Devam etmek için giriş yapın</p>
             </div>
             <div class="space-y-4">
@@ -1089,31 +1092,6 @@
         </div>
     </div>
 
-    <!-- Masaları Birleştir -->
-    <div id="modal-merge" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-merge')">
-        <div class="glass rounded-2xl p-8 slide-in" style="width:min(560px,calc(100vw-32px))">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h3 class="text-xl font-bold">🔀 Masaları Birleştir</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Seçilen masalar <b class="text-white" id="merge-target-name"></b>'de birleştirilecek</p>
-                </div>
-                <button onclick="closeModal('modal-merge')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
-            </div>
-            <input type="hidden" id="merge-target-id">
-            <div class="bg-slate-800/50 rounded-xl p-3 text-xs text-slate-400 leading-relaxed mb-3">
-                💡 Birleştirilen masaların içecekleri hedef masaya taşınır, süre en erken başlangıç saatinden işlenir, ekstra kumandalar toplanır. Birleşen masalar boşa düşer.
-            </div>
-            <p class="text-sm text-slate-400 mb-3">Birleştirilecek masaları seçin:</p>
-            <div id="merge-sources" class="max-h-[38vh] overflow-y-auto space-y-2 pr-1">
-                <div class="text-center text-slate-500 text-sm py-6">Yükleniyor...</div>
-            </div>
-            <div class="flex gap-3 mt-4">
-                <button onclick="closeModal('modal-merge')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
-                <button onclick="confirmMerge()" class="flex-1 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-medium transition">Birleştir</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Stok Raporu -->
     <div id="modal-stock-report" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-stock-report')">
         <div class="glass rounded-2xl w-[min(1100px,96vw)] max-h-[90vh] flex flex-col slide-in">
@@ -1307,7 +1285,6 @@
                 const stats = await invoke('get_dashboard_stats');
                 document.getElementById('dash-active').textContent = stats.active_count;
                 document.getElementById('dash-revenue').textContent = '₺' + stats.today_revenue.toFixed(2);
-                document.getElementById('dash-sessions').textContent = stats.total_sessions;
             } catch (e) { showToast('Hata: ' + e, 'error'); }
             try {
                 const info = await invoke('get_web_info');
@@ -1541,7 +1518,6 @@
                     const transferMergeRow = isActive
                         ? `<div class="flex gap-2 mt-2">
                             <button onclick="openTransferModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2 bg-slate-700/70 hover:bg-slate-600 rounded-xl text-xs font-semibold transition" title="Oturumu başka bir masaya taşı">↔ Devret</button>
-                            <button onclick="openMergeModal('${st.id}', '${esc(st.name)}')" class="flex-1 py-2 bg-purple-600/60 hover:bg-purple-500 rounded-xl text-xs font-semibold transition" title="Diğer aktif masaları bu masada birleştir">🔀 Birleştir</button>
                         </div>`
                         : '';
 
@@ -1615,51 +1591,6 @@
                 await invoke('transfer_session', { stationId: sourceId, targetStationId: targetId });
                 closeModal('modal-transfer');
                 showToast('Oturum ' + targetName + ' masasına devredildi');
-                loadStations();
-                if (currentTab === 'drinks') loadStationDrinks();
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
-        }
-
-        // ─── Masaları Birleştir ──────────────────────────────
-
-        async function openMergeModal(stationId, stationName) {
-            document.getElementById('merge-target-id').value = stationId;
-            document.getElementById('merge-target-name').textContent = stationName;
-            openModal('modal-merge');
-            await renderMergeSources(stationId);
-        }
-
-        async function renderMergeSources(targetId) {
-            const el = document.getElementById('merge-sources');
-            try {
-                const sessions = await invoke('get_active_sessions');
-                const others = sessions.filter(s => s.station_id !== targetId);
-                if (!others.length) {
-                    el.innerHTML = '<div class="text-center text-slate-500 text-sm py-6">Birleştirilecek başka aktif oturum yok</div>';
-                    return;
-                }
-                el.innerHTML = others.map(s => `
-                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-600/60 hover:border-purple-500/70 hover:bg-slate-700/40 cursor-pointer transition">
-                        <input type="checkbox" value="${esc(s.station_id)}" class="merge-check w-4 h-4 accent-purple-500 flex-none">
-                        <div class="min-w-0 flex-1">
-                            <div class="text-sm font-medium text-white">${escHtml(s.station_name)}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5">${escHtml(s.customer || 'Müşteri')} · Başlangıç ${new Date(s.start_time).toLocaleTimeString('tr-TR')}</div>
-                        </div>
-                    </label>`).join('');
-            } catch (e) {
-                el.innerHTML = '<div class="text-center text-red-400 text-sm py-6">' + escHtml(String(e)) + '</div>';
-            }
-        }
-
-        async function confirmMerge() {
-            const targetId = document.getElementById('merge-target-id').value;
-            const sources = Array.from(document.querySelectorAll('#merge-sources .merge-check:checked')).map(c => c.value);
-            if (!sources.length) { showToast('Birleştirilecek masa seçin!', 'error'); return; }
-            if (!confirm(sources.length + ' masa bu masada birleştirilsin mi? Birleşen masalar boşa düşer.')) return;
-            try {
-                await invoke('merge_sessions', { targetStationId: targetId, sourceStationIds: sources });
-                closeModal('modal-merge');
-                showToast('Masalar birleştirildi');
                 loadStations();
                 if (currentTab === 'drinks') loadStationDrinks();
             } catch (e) { showToast('Hata: ' + e, 'error'); }
@@ -1897,7 +1828,7 @@
             var html =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">OYUN KAFE YÖNETİM</div>' +
+                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
                 '<div class="text-xs text-gray-500">Stok Raporu — ' + r.date + '</div></div>' +
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-sm"><div class="flex justify-between"><span>Toplam Ürün</span><span>' + r.total_items + '</span></div>' +
@@ -1912,7 +1843,7 @@
                 '<table style="' + tStyle + '"><thead><tr>' +
                 '<th style="' + thStyle + '">Ürün</th><th style="' + thStyle + '">Kategori</th><th style="' + thStyle + '">Satış</th><th style="' + thStyle + '">Maliyet</th><th style="' + thStyle + '">Stok</th><th style="' + thStyle + '">Min</th><th style="' + thStyle + '">Durum</th><th style="' + thStyle + '">Satılan (Tümü)</th><th style="' + thStyle + '">Ciro</th><th style="' + thStyle + '">Stok Değeri</th>' +
                 '</tr></thead><tbody>' + rows + '</tbody></table>' +
-                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • Oyun Kafe Yönetim</div>';
+                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • JiJi Game Center - PlayStation & VR</div>';
             printHTML(html);
         }
 
@@ -2883,7 +2814,7 @@
             document.getElementById('print-area').innerHTML =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">OYUN KAFE YÖNETİM</div>' +
+                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
                 '<div class="text-xs text-gray-500">Oturum Fişi</div>' +
                 '<div class="text-xs text-gray-500">' + end.toLocaleString('tr-TR') + '</div>' +
                 '</div>' +
@@ -3028,7 +2959,7 @@
             var html =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">OYUN KAFE YÖNETİM</div>' +
+                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
                 '<div class="text-xs text-gray-500">Gün Sonu Raporu</div>' +
                 '<div class="text-xs text-gray-500">' + d + '</div>' +
                 '</div>' +
@@ -3049,7 +2980,7 @@
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-xs font-bold mb-1">🖥️ Açılan Oturumlar (Gün Sonuna Kadar — ' + r.session_details.length + ' oturum)</div>' +
                 '<table style="' + tStyle + '"><thead><tr><th style="' + thStyle + '">İstasyon</th><th style="' + thStyle + '">Saat</th><th style="' + thStyle + '">Süre</th><th style="' + thStyle + '">Ödeme</th><th style="' + thStyle + '">İçecek</th><th style="' + thStyle + '">İndirim</th><th style="' + thStyle + '">Toplam</th></tr></thead><tbody>' + sessionRows + '</tbody></table>' +
-                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • Oyun Kafe Yönetim</div>';
+                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • JiJi Game Center - PlayStation & VR</div>';
             printHTML(html);
         }
 
@@ -3058,7 +2989,7 @@
         document.addEventListener('DOMContentLoaded', () => { initAuth(); });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt', 'modal-stock-report', 'modal-dev-pass', 'modal-transfer', 'modal-merge'].forEach(id => closeModal(id));
+                ['modal-start', 'modal-end', 'modal-add-station', 'modal-edit-station', 'modal-add-drink', 'modal-edit-drink', 'modal-order-drink', 'modal-edit-start', 'modal-notes', 'modal-user', 'modal-password', 'modal-adjust-stock', 'modal-receipt', 'modal-stock-report', 'modal-dev-pass', 'modal-transfer'].forEach(id => closeModal(id));
                 closeQuickAddDrink();
             }
             if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }

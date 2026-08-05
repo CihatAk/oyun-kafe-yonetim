@@ -1,4 +1,4 @@
-# Oyun Kafe Yönetim Paneli - Güncelleme Release Script
+# JiJi Game Center - PlayStation & VR - Güncelleme Release Script
 # Bu script yeni versiyon için gerekli dosyaları hazırlar ve GitHub'a yüklemeyi kolaylaştırır
 #
 # Kullanim:
@@ -47,7 +47,7 @@ Write-Host "Setup dosyaları kopyalandı: $releaseDir"
 # 4. latest.json hazırla
 $latestJson = @{
   version = $Version
-  notes = "Oyun Kafe Yönetim Paneli $Version güncellemesi"
+  notes = "JiJi Game Center - PlayStation & VR $Version güncellemesi"
   pub_date = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
   platforms = @{
     "windows-x86_64" = @{

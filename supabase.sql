@@ -1,4 +1,4 @@
--- Oyun Kafe Supabase şeması
+-- JiJi Game Center Supabase şeması
 -- Supabase Dashboard > SQL Editor'a yapıştırıp "Run" çalıştırın.
 
 create table if not exists public.kafe_overview (

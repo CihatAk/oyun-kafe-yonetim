@@ -25,7 +25,7 @@ fn main() {
             sessions::start_session, sessions::end_session, sessions::get_active_sessions,
             sessions::update_session_start_time, sessions::pause_session, sessions::resume_session,
             sessions::update_session_notes, sessions::update_session_extra_controllers,
-            sessions::transfer_session, sessions::merge_sessions,
+            sessions::transfer_session,
             finance::get_pricing, finance::set_pricing, finance::get_history,
             finance::get_history_filtered, finance::clear_history, finance::delete_history,
             finance::export_history_csv, finance::export_history_json,

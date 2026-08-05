@@ -1,4 +1,4 @@
-# Oyun Kafe Yönetim Paneli
+# JiJi Game Center - PlayStation & VR
 
 Rust + Tauri ile geliştirilmiş, oyun kafeler için saatlik ücret hesaplayan masaüstü yönetim paneli.
 

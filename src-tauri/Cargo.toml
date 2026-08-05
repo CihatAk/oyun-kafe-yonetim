@@ -1,8 +1,8 @@
 [package]
 name = "oyun-kafe-yonetim"
 version = "2.0.6"
-description = "Oyun Kafe Yönetim Paneli - Saatlik Ücret Hesaplama"
-authors = ["Oyun Kafe"]
+description = "JiJi Game Center - PlayStation & VR"
+authors = ["JiJi Game Center"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.70"

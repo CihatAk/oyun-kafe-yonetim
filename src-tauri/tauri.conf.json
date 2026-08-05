@@ -37,7 +37,7 @@
         "icons/icon.ico"
       ],
       "identifier": "com.oyunkafe.yonetim",
-      "longDescription": "Oyun Kafe Yonetim Paneli",
+      "longDescription": "JiJi Game Center - PlayStation & VR",
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
@@ -46,7 +46,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "Oyun Kafe Yonetim Paneli",
+      "shortDescription": "JiJi Game Center - PlayStation & VR",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,
@@ -68,7 +68,7 @@
         "visible": false,
         "height": 800,
         "resizable": true,
-        "title": "Oyun Kafe Yonetim Paneli",
+        "title": "JiJi Game Center - PlayStation & VR",
         "width": 1400,
         "minWidth": 1200,
         "minHeight": 700,
