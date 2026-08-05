@@ -170,7 +170,7 @@
 
         <!-- ═══ Dashboard ═══ -->
         <div id="tab-dashboard" class="tab-content space-y-6">
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div class="glass rounded-xl p-4 border-l-2 border-l-emerald-400">
                     <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Aktif İstasyon</span><span class="text-xl">🟢</span></div>
                     <div class="text-3xl font-semibold text-emerald-300" id="dash-active">0</div>
@@ -180,11 +180,6 @@
                     <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Bugünkü Gelir</span><span class="text-xl">💰</span></div>
                     <div class="text-3xl font-semibold text-amber-300" id="dash-revenue">₺0.00</div>
                     <div class="text-slate-500 text-xs mt-1">Toplam kazanç</div>
-                </div>
-                <div class="glass rounded-xl p-4 border-l-2 border-l-blue-400">
-                    <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Toplam Oturum</span><span class="text-xl">📝</span></div>
-                    <div class="text-3xl font-semibold text-blue-300" id="dash-sessions">0</div>
-                    <div class="text-slate-500 text-xs mt-1">Bugüne kadar</div>
                 </div>
                 <div class="glass rounded-xl p-4 border-l-2 border-l-purple-400">
                     <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Ortalama Süre</span><span class="text-xl">⏱️</span></div>
@@ -692,6 +687,7 @@
                     <select id="end-payment" onchange="updateEndTotal()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                         <option value="nakit">💵 Nakit</option>
                         <option value="kart">💳 Kart</option>
+                        <option value="iban">🏦 IBAN</option>
                     </select>
                 </div>
                 <div>
@@ -1001,32 +997,63 @@
 
     <!-- İçecek Ekle -->
     <div id="modal-order-drink" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-overlay" onclick="if(event.target===this)closeModal('modal-order-drink')">
-        <div class="glass rounded-2xl p-8 w-[420px] slide-in">
+        <div class="glass rounded-2xl p-8 w-[480px] slide-in">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-bold">Masaya İçecek Ekle</h3>
-                <button onclick="closeModal('modal-order-drink')" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-xl">🥤</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Masaya Ürün Ekle</h3>
+                        <p class="text-xs text-slate-400">Aktif oturuma ürün siparişi</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-order-drink')" class="px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition" title="Kapat">✕</button>
             </div>
-            <div class="space-y-4">
+            <div class="space-y-5">
                 <input type="hidden" id="order-drink-id">
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">İçecek</label>
-                    <input type="text" id="order-drink-name" readonly class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 text-slate-400">
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center text-2xl" id="order-drink-emoji">🥤</div>
+                        <div class="flex-1">
+                            <div class="text-sm text-slate-400 mb-1">Ürün</div>
+                            <div class="font-semibold text-white" id="order-drink-name">-</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-slate-400 mb-1">Birim Fiyat</div>
+                            <div class="font-bold text-amber-400" id="order-drink-price">₺0.00</div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Birim Fiyat</label>
-                    <input type="text" id="order-drink-price" readonly class="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 text-slate-400">
-                </div>
-                <div>
-                    <label class="block text-slate-300 text-sm font-medium mb-2">Adet</label>
-                    <input type="number" id="order-quantity" value="1" min="1" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-300 text-sm font-medium mb-2">Adet</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="adjustQuantity(-1)" class="w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold transition">-</button>
+                            <input type="number" id="order-quantity" value="1" min="1" readonly class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-center font-semibold">
+                            <button onclick="adjustQuantity(1)" class="w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold transition">+</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 text-sm font-medium mb-2">Toplam Tutar</label>
+                        <div class="h-10 rounded-lg bg-slate-800/50 border border-slate-700/50 flex items-center justify-center">
+                            <span class="font-bold text-lg text-emerald-400" id="order-total">₺0.00</span>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Hangi Masaya?</label>
-                    <select id="order-session" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition"></select>
+                    <select id="order-session" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                        <option value="">Seçiniz...</option>
+                    </select>
                 </div>
-                <div class="flex gap-3 mt-4">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                    <div class="flex items-center gap-2 text-emerald-400 text-sm">
+                        <span class="text-lg">💡</span>
+                        <span class="text-emerald-300">Bu sipariş oturum toplamına otomatik eklenecek</span>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
                     <button onclick="closeModal('modal-order-drink')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
-                    <button onclick="confirmOrderDrink()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">Masaya Ekle</button>
+                    <button onclick="confirmOrderDrink()" class="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl font-medium transition">Masaya Ekle</button>
                 </div>
             </div>
         </div>
@@ -1585,15 +1612,31 @@
                 if (!session) return;
                 const listHtml = drinks.map(d => {
                     const disabled = d.stock === 0;
-                    return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-600"'} class="flex items-center justify-between p-2 rounded-lg transition">
-                        <span class="flex items-center gap-2"><span class="text-xl">${escHtml(d.emoji || '🥤')}</span><span class="text-sm font-medium">${escHtml(d.name)}</span></span>
-                        <span class="text-sm text-amber-400">₺${d.price.toFixed(2)}${d.stock >= 0 ? ` <span class="text-slate-500">(${d.stock})</span>` : ''}</span>
+                    const stockClass = d.stock <= 3 ? 'text-red-400' : d.stock <= 10 ? 'text-amber-400' : 'text-emerald-400';
+                    return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-700/50"'} class="flex items-center justify-between p-3 rounded-xl transition border border-slate-700/50 hover:border-slate-600/50">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${escHtml(d.emoji || '🥤')}</span>
+                            <div class="text-left">
+                                <div class="text-sm font-medium text-white">${escHtml(d.name)}</div>
+                                <div class="text-xs ${stockClass}">${d.stock >= 0 ? `Stok: ${d.stock}` : 'Sınırsız'}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-amber-400">₺${d.price.toFixed(2)}</div>
+                            ${disabled ? '<div class="text-xs text-red-400">Tükendi</div>' : ''}
+                        </div>
                     </button>`;
                 }).join('');
                 let dropdown = document.getElementById('quick-add-drink-dropdown');
                 if (!dropdown) { dropdown = document.createElement('div'); dropdown.id = 'quick-add-drink-dropdown'; document.body.appendChild(dropdown); }
-                dropdown.className = 'fixed z-50 glass rounded-xl shadow-2xl p-2 w-72 max-h-80 overflow-y-auto';
-                dropdown.innerHTML = `<div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)}</div>${listHtml}<button onclick="closeQuickAddDrink()" class="w-full mt-1 py-1 text-xs text-slate-400 hover:text-white transition">Kapat</button>`;
+                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-80 max-h-96 overflow-y-auto';
+                dropdown.innerHTML = `
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
+                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)}</div>
+                        <button onclick="closeQuickAddDrink()" class="text-slate-400 hover:text-white transition p-1">✕</button>
+                    </div>
+                    <div class="space-y-2">${listHtml}</div>
+                `;
                 dropdown.style.top = '50%'; dropdown.style.left = '50%'; dropdown.style.transform = 'translate(-50%, -50%)';
             } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
@@ -1620,9 +1663,19 @@
 
                 const listHtml = drinks.map(d => {
                     const disabled = d.stock === 0;
-                    return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-600"'} class="flex items-center justify-between p-2 rounded-lg transition">
-                        <span class="flex items-center gap-2"><span class="text-xl">${escHtml(d.emoji || '🥤')}</span><span class="text-sm font-medium">${escHtml(d.name)}</span></span>
-                        <span class="text-sm text-amber-400">₺${d.price.toFixed(2)}${d.stock >= 0 ? ` <span class="text-slate-500">(${d.stock})</span>` : ''}</span>
+                    const stockClass = d.stock <= 3 ? 'text-red-400' : d.stock <= 10 ? 'text-amber-400' : 'text-emerald-400';
+                    return `<button onclick="quickAddDrinkItem('${stationId}','${d.id}')" ${disabled ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-700/50"'} class="flex items-center justify-between p-3 rounded-xl transition border border-slate-700/50 hover:border-slate-600/50">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${escHtml(d.emoji || '🥤')}</span>
+                            <div class="text-left">
+                                <div class="text-sm font-medium text-white">${escHtml(d.name)}</div>
+                                <div class="text-xs ${stockClass}">${d.stock >= 0 ? `Stok: ${d.stock}` : 'Sınırsız'}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-amber-400">₺${d.price.toFixed(2)}</div>
+                            ${disabled ? '<div class="text-xs text-red-400">Tükendi</div>' : ''}
+                        </div>
                     </button>`;
                 }).join('');
 
@@ -1632,11 +1685,13 @@
                     dropdown.id = 'quick-add-drink-dropdown';
                     document.body.appendChild(dropdown);
                 }
-                dropdown.className = 'fixed z-50 glass rounded-xl shadow-2xl p-2 w-72 max-h-80 overflow-y-auto';
+                dropdown.className = 'fixed z-50 glass rounded-2xl shadow-2xl p-4 w-80 max-h-96 overflow-y-auto';
                 dropdown.innerHTML = `
-                    <div class="text-xs text-slate-400 mb-1 px-2">${escHtml(session.station_name)}</div>
-                    ${listHtml}
-                    <button onclick="closeQuickAddDrink()" class="w-full mt-1 py-1 text-xs text-slate-400 hover:text-white transition">Kapat</button>
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
+                        <div class="text-sm font-semibold text-white">${escHtml(session.station_name)}</div>
+                        <button onclick="closeQuickAddDrink()" class="text-slate-400 hover:text-white transition p-1">✕</button>
+                    </div>
+                    <div class="space-y-2">${listHtml}</div>
                 `;
                 const btn = event.target.getBoundingClientRect();
                 dropdown.style.top = Math.min(btn.top - dropdown.offsetHeight - 5, window.innerHeight - dropdown.offsetHeight - 10) + 'px';
@@ -1745,6 +1800,7 @@
                     <select onchange="partialPayments[${i}].method=this.value" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white flex-1">
                         <option value="nakit" ${p.method==='nakit'?'selected':''}>💵 Nakit</option>
                         <option value="kart" ${p.method==='kart'?'selected':''}>💳 Kart</option>
+                        <option value="iban" ${p.method==='iban'?'selected':''}>🏦 IBAN</option>
                     </select>
                     <input type="number" value="${p.amount || ''}" step="0.01" onchange="partialPayments[${i}].amount=parseFloat(this.value)||0" placeholder="₺ Tutar" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white flex-1">
                     <button onclick="partialPayments.splice(${i},1);renderPartialRows()" class="px-2 py-2 text-red-400 hover:text-red-300 transition">✕</button>
@@ -1767,7 +1823,7 @@
                     const diffMins = Math.max(0, Math.floor((end - start) / 60000));
                     document.getElementById('end-duration').textContent = diffMins + ' dk';
                     const pricing = await invoke('get_pricing');
-                    const perMinute = payment === 'kart' ? pricing.card_per_minute : pricing.cash_per_minute;
+                    const perMinute = (payment === 'kart' || payment === 'iban') ? pricing.card_per_minute : pricing.cash_per_minute;
                     const roundMinutes = pricing.round_minutes || 1;
                     const roundedMins = Math.ceil(diffMins / roundMinutes) * roundMinutes;
                     baseFee = Math.max(roundedMins * perMinute, pricing.min_charge || 0);
@@ -2011,12 +2067,33 @@
             document.getElementById('order-drink-name').value = drinkName.replace(/\\'/g, "'");
             document.getElementById('order-drink-price').value = '₺' + drinkPrice.toFixed(2);
             document.getElementById('order-quantity').value = 1;
+            document.getElementById('order-total').textContent = '₺' + drinkPrice.toFixed(2);
+            
+            // Get emoji from drink data
+            const drinks = await invoke('get_drinks');
+            const drink = drinks.find(d => d.id === drinkId);
+            if (drink) {
+                document.getElementById('order-drink-emoji').textContent = drink.emoji || '🥤';
+            }
+            
             const sessions = await invoke('get_active_sessions');
             const select = document.getElementById('order-session');
             select.innerHTML = '';
             if (sessions.length === 0) { select.innerHTML = '<option value="">Aktif masa yok</option>'; showToast('Eklemek için aktif masa olmalı!', 'error'); return; }
             sessions.forEach(s => { const opt = document.createElement('option'); opt.value = s.station_id; opt.textContent = s.station_name; select.appendChild(opt); });
             openModal('modal-order-drink');
+        }
+
+        function adjustQuantity(delta) {
+            const input = document.getElementById('order-quantity');
+            const current = parseInt(input.value) || 1;
+            const newValue = Math.max(1, current + delta);
+            input.value = newValue;
+            
+            const priceText = document.getElementById('order-drink-price').value.replace('₺', '');
+            const price = parseFloat(priceText) || 0;
+            const total = newValue * price;
+            document.getElementById('order-total').textContent = '₺' + total.toFixed(2);
         }
 
         async function confirmOrderDrink() {
