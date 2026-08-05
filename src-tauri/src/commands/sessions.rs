@@ -231,3 +231,107 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
 
     Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type: rate_used, drink_total, discount, notes, tags, extra_controllers, extra_fee })
 }
+
+fn load_active(conn: &rusqlite::Connection, station_id: &str) -> Result<ActiveSession, String> {
+    conn.query_row(
+        "SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1",
+        params![station_id], map_active,
+    ).map_err(|_| "Aktif oturum bulunamadı".into())
+}
+
+#[tauri::command]
+pub fn transfer_session(station_id: String, target_station_id: String, state: State<AppState>) -> Result<ActiveSession, String> {
+    require_login(&state)?;
+    if station_id == target_station_id {
+        return Err("Hedef istasyon kaynak istasyon ile aynı olamaz".into());
+    }
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    let source = load_active(&conn, &station_id)?;
+    let (target_status, target_name): (String, String) = conn.query_row(
+        "SELECT status, name FROM stations WHERE id = ?1",
+        params![target_station_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    ).map_err(|_| "Hedef istasyon bulunamadı")?;
+    if target_status != "idle" {
+        return Err(format!("'{}' masası boş değil, oturum devredilemez", target_name));
+    }
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        conn.execute("UPDATE active_sessions SET station_id = ?1, station_name = ?2 WHERE station_id = ?3", params![target_station_id, target_name, station_id]).map_err(|e| e.to_string())?;
+        conn.execute("UPDATE stations SET status = 'idle' WHERE id = ?1", params![station_id]).map_err(|e| e.to_string())?;
+        conn.execute("UPDATE stations SET status = 'active' WHERE id = ?1", params![target_station_id]).map_err(|e| e.to_string())?;
+        conn.execute("UPDATE drink_orders SET session_id = ?1, station_name = ?2 WHERE session_id = ?3", params![target_station_id, target_name, station_id]).map_err(|e| e.to_string())?;
+        log_audit_conn(&conn, &state, "transfer_session", "sessions", format!("{} -> {}", source.station_name, target_name).as_str());
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+    load_active(&conn, &target_station_id)
+}
+
+#[tauri::command]
+pub fn merge_sessions(target_station_id: String, source_station_ids: Vec<String>, state: State<AppState>) -> Result<ActiveSession, String> {
+    require_login(&state)?;
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    let target = load_active(&conn, &target_station_id)?;
+    let mut sources: Vec<ActiveSession> = Vec::new();
+    for sid in &source_station_ids {
+        if sid == &target_station_id { continue; }
+        match load_active(&conn, sid) {
+            Ok(s) => sources.push(s),
+            Err(_) => return Err(format!("Aktif oturum bulunamadı: {}", sid)),
+        }
+    }
+    if sources.is_empty() {
+        return Err("Birleştirilecek en az bir aktif oturum seçin!".into());
+    }
+    let target_name = target.station_name.clone();
+    let now = Local::now();
+    conn.execute_batch("BEGIN TRANSACTION").map_err(|e| e.to_string())?;
+    let tx_result: Result<(), String> = (|| {
+        let mut start = target.start_time.clone();
+        let mut extra = target.extra_controllers;
+        let mut paused_total = target.total_paused_seconds;
+        let mut extra_note_parts: Vec<&str> = Vec::new();
+        let mut merged_tags = target.tags.clone();
+        for s in &sources {
+            if s.start_time < start { start = s.start_time.clone(); }
+            extra += s.extra_controllers;
+            paused_total += s.total_paused_seconds;
+            if let Some(p) = &s.paused_at {
+                if let Ok(pd) = DateTime::parse_from_rfc3339(p) {
+                    let secs = now.signed_duration_since(pd.with_timezone(&Local)).num_seconds().max(0);
+                    paused_total += secs;
+                }
+            }
+            extra_note_parts.push(&s.station_name);
+            if !s.tags.trim().is_empty() {
+                if !merged_tags.trim().is_empty() { merged_tags.push_str(", "); }
+                merged_tags.push_str(s.tags.trim());
+            }
+        }
+        let merged_notes = if extra_note_parts.is_empty() {
+            target.notes.clone()
+        } else {
+            format!("{}{}", target.notes, format!(" (birleşti: {})", extra_note_parts.join(", ")))
+        };
+        conn.execute("UPDATE active_sessions SET start_time = ?1, extra_controllers = ?2, total_paused_seconds = ?3, notes = ?4, tags = ?5 WHERE station_id = ?6",
+            params![start, extra, paused_total, merged_notes, merged_tags, target_station_id]).map_err(|e| e.to_string())?;
+        for s in &sources {
+            conn.execute("UPDATE drink_orders SET session_id = ?1, station_name = ?2 WHERE session_id = ?3", params![target_station_id, target_name, s.station_id]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM active_sessions WHERE station_id = ?1", params![s.station_id]).map_err(|e| e.to_string())?;
+            conn.execute("UPDATE stations SET status = 'idle' WHERE id = ?1", params![s.station_id]).map_err(|e| e.to_string())?;
+        }
+        log_audit_conn(&conn, &state, "merge_sessions", "sessions", format!("{} <- {}", target_name, extra_note_parts.join(", ")).as_str());
+        Ok(())
+    })();
+    if let Err(e) = tx_result {
+        conn.execute_batch("ROLLBACK").ok();
+        return Err(e);
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+    load_active(&conn, &target_station_id)
+}
