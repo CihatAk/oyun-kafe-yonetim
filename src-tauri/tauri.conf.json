@@ -17,7 +17,8 @@
         "all": true
       },
       "window": {
-        "setFullscreen": true
+        "setFullscreen": true,
+        "setTitle": true
       }
     },
     "bundle": {
