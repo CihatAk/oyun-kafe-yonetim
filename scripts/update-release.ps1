@@ -5,13 +5,25 @@
 #   powershell -ExecutionPolicy Bypass -File scripts/update-release.ps1 -Version "2.0.1"
 #
 # NOT: latest.json'in gerçek imza içermesi icin build, Tauri updater anahtariyla
-# imzalanmalidir. Anahtar/cifre sistem ortam degiskenlerinde olmali:
-#   $env:TAURI_PRIVATE_KEY = "<minisign gizli anahtar>"
+# imzalanmalidir. Anahtar kalici güvenli konumda:
+#   %LOCALAPPDATA%\oyun-kafe-yonetim\jiji-updater-2.key
+# ve sifre sistem ortam degiskeninde olmali:
 #   $env:TAURI_KEY_PASSWORD = "<anahtar sifresi>"
 
 param([string]$Version = $env:RELEASE_VERSION)
 
 $ErrorActionPreference = "Stop"
+
+# Imzalama icin anahtari kalici güvenli konumdan yukle (TAURI_PRIVATE_KEY tanimli degilse)
+if (-not $env:TAURI_PRIVATE_KEY) {
+  $secureKey = Join-Path $env:LOCALAPPDATA "oyun-kafe-yonetim\jiji-updater-2.key"
+  if (Test-Path $secureKey) {
+    $env:TAURI_PRIVATE_KEY = (Get-Content $secureKey -Raw).Trim()
+    Write-Host "TAURI_PRIVATE_KEY kalici konumdan yuklendi: $secureKey"
+  } else {
+    Write-Warning "TAURI_PRIVATE_KEY tanimli degil ve kalici anahtar bulunamadi: $secureKey"
+  }
+}
 
 if (-not $Version) {
   Write-Error "Version parametresi gerekli. Ornek: -Version '2.0.1'"
