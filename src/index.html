@@ -587,6 +587,19 @@
             </div>
             <div class="glass rounded-2xl overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-700/50">
+                    <h3 class="text-lg font-semibold flex items-center gap-2">💳 POS Tahsilatı</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Kartla ödemede çalışana POS onay ekranı gösterilsin mi?</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="settings-pos-confirm" onchange="savePosSetting()" class="w-5 h-5 rounded bg-slate-800 border-slate-600 text-cyan-500 focus:ring-cyan-500">
+                        <span class="text-sm text-slate-300">Kartla ödemede POS tahsilat onayı göster (💳 Kart seçilince önce "Ödeme Alındı" onayı istenir)</span>
+                    </label>
+                    <p class="text-xs text-slate-500">Kapalıysa kart ödemesi onaysız, doğrudan kapatılır. Her işletme kendi POS cihazına göre açar/kapatır.</p>
+                </div>
+            </div>
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-700/50">
                     <h3 class="text-lg font-semibold flex items-center gap-2">🔐 Lisans</h3>
                     <p class="text-xs text-slate-500 mt-0.5">Yazılımı kullanmak için geçerli bir lisans gereklidir</p>
                 </div>
@@ -852,6 +865,32 @@
             <div class="px-6 pt-4 pb-6 border-t border-slate-700/50 flex gap-3">
                 <button onclick="closeModal('modal-end')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
                 <button onclick="confirmEndSession()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-medium transition">Sonlandır & Öde</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POS Tahsilat Onay -->
+    <div id="modal-pos" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[60] modal-overlay" onclick="if(event.target===this)cancelPosPayment()">
+        <div class="glass rounded-2xl w-[440px] max-w-[calc(100vw-2rem)] p-8 slide-in text-center">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">💳 POS Tahsilatı</h3>
+                <button onclick="cancelPosPayment()" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Kapat">✕</button>
+            </div>
+            <p class="text-sm text-slate-400 mb-2">POS cihazında aşağıdaki tutarı tahsil edin</p>
+            <div id="pos-amount-display" class="text-5xl font-extrabold text-emerald-400 mb-1 py-3">₺0.00</div>
+            <div id="pos-station-label" class="text-sm text-slate-500 mb-5"></div>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">POS Fiş No / Son 4 Hane <span class="text-slate-500">(isteğe bağlı)</span></label>
+                    <input type="text" id="pos-reference" maxlength="40" placeholder="Örn: 12345678 veya 5432" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div class="bg-slate-800/50 rounded-xl p-3 text-xs text-slate-400">
+                    <span id="pos-warning-text">Ödeme alınmadan oturum kapatılmaz. Tutar POS cihazından tahsil edildiyse "Ödeme Alındı" deyin.</span>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="cancelPosPayment()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">Geri Dön</button>
+                    <button onclick="confirmPosPayment()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">✓ Ödeme Alındı</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2300,13 +2339,15 @@
             }
         }
 
-        async function confirmEndSession() {
+        let posConfirmEnabled = true;
+
+        function collectEndPayload() {
             const stationId = document.getElementById('end-station-id').value;
             const payment = document.getElementById('end-payment').value;
             let customEndTime = null;
             if (endTimeMode === 'manual') {
                 const dt = document.getElementById('end-custom-datetime').value;
-                if (!dt) { showToast('Bitiş tarihi gerekli!', 'error'); return; }
+                if (!dt) { showToast('Bitiş tarihi gerekli!', 'error'); return null; }
                 customEndTime = new Date(dt).toISOString();
             }
             let partialPaymentsJson = null;
@@ -2315,23 +2356,89 @@
             }
             const discountAmount = parseFloat(document.getElementById('end-discount-amount').value) || 0;
             const discountReason = document.getElementById('end-discount-reason').value.trim();
-            if (discountAmount < 0) { showToast('İndirim tutarı negatif olamaz!', 'error'); return; }
-            if (discountAmount > 0 && !discountReason) { showToast('İndirim nedeni zorunludur!', 'error'); return; }
+            if (discountAmount < 0) { showToast('İndirim tutarı negatif olamaz!', 'error'); return null; }
+            if (discountAmount > 0 && !discountReason) { showToast('İndirim nedeni zorunludur!', 'error'); return null; }
+            return {
+                stationId,
+                payment,
+                customEndTime,
+                partialPaymentsJson,
+                discountAmount: discountAmount > 0 ? discountAmount : null,
+                discountReason: discountAmount > 0 ? discountReason : null
+            };
+        }
+
+        function kartPortionTotal(payload) {
+            if (payload.partialPaymentsJson) {
+                try {
+                    const parts = JSON.parse(payload.partialPaymentsJson);
+                    return parts.filter(p => p.method === 'kart').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                } catch (e) { return 0; }
+            }
+            if (payload.payment === 'kart') {
+                const totalText = document.getElementById('end-total').textContent || '0';
+                return parseFloat(String(totalText).replace(/[^\d.\-]/g, '')) || 0;
+            }
+            return 0;
+        }
+
+        async function confirmEndSession() {
+            const payload = collectEndPayload();
+            if (!payload) return;
+            const posAmount = kartPortionTotal(payload);
+            if (posAmount > 0 && posConfirmEnabled) {
+                pendingPosEnd = payload;
+                openPosModal(posAmount, payload.stationId);
+                return;
+            }
+            await finalizeEndSession(payload, null);
+        }
+
+        let pendingPosEnd = null;
+
+        function openPosModal(amount, stationId) {
+            document.getElementById('pos-amount-display').textContent = '₺' + Number(amount).toFixed(2);
+            document.getElementById('pos-station-label').textContent = 'İstasyon: ' + (document.getElementById('end-station-name').textContent || '');
+            document.getElementById('pos-reference').value = '';
+            openModal('modal-pos');
+        }
+
+        function cancelPosPayment() {
+            pendingPosEnd = null;
+            closeModal('modal-pos');
+        }
+
+        async function confirmPosPayment() {
+            if (!pendingPosEnd) { closeModal('modal-pos'); return; }
+            const payload = pendingPosEnd;
+            const posReference = document.getElementById('pos-reference').value.trim();
+            const btn = event && event.target ? event.target : null;
+            if (btn) { btn.disabled = true; btn.textContent = 'Kapatılıyor...'; }
             try {
-                const record = await invoke('end_session', {
-                    stationId,
-                    paymentMethod: payment,
-                    customEndTime,
-                    partialPaymentsJson,
-                    discountAmount: discountAmount > 0 ? discountAmount : null,
-                    discountReason: discountAmount > 0 ? discountReason : null
-                });
-                closeModal('modal-end');
-                showToast(`Oturum sonlandırıldı! ₺${record.total.toFixed(2)}`);
-                endSessionData = null;
-                if (currentTab === 'dashboard') { loadDashboard(); loadStations(); }
-                openReceipt(record.id);
-            } catch (e) { showToast('Hata: ' + e, 'error'); }
+                await finalizeEndSession(payload, posReference);
+                pendingPosEnd = null;
+            } catch (e) {
+                showToast('Hata: ' + e, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = '✓ Ödeme Alındı'; }
+            }
+        }
+
+        async function finalizeEndSession(payload, posReference) {
+            const record = await invoke('end_session', {
+                stationId: payload.stationId,
+                paymentMethod: payload.payment,
+                customEndTime: payload.customEndTime,
+                partialPaymentsJson: payload.partialPaymentsJson,
+                discountAmount: payload.discountAmount,
+                discountReason: payload.discountReason,
+                posReference
+            });
+            closeModal('modal-pos');
+            closeModal('modal-end');
+            showToast(`Oturum sonlandırıldı! ₺${record.total.toFixed(2)}`);
+            endSessionData = null;
+            if (currentTab === 'dashboard') { loadDashboard(); loadStations(); }
+            openReceipt(record.id);
         }
 
         // ─── Duraklat / Sürdür ─────────────────────────────
@@ -2767,9 +2874,23 @@
             try {
                 const cfg = await invoke('get_ui_config');
                 document.getElementById('settings-business-name').value = cfg.business_name;
+                const posVal = await invoke('get_pos_confirm_required');
+                posConfirmEnabled = Number(posVal) === 1;
+                const toggle = document.getElementById('settings-pos-confirm');
+                if (toggle) toggle.checked = posConfirmEnabled;
             } catch (e) { console.error(e); }
             await refreshLicenseStatus();
             document.getElementById('license-status-text').textContent = licenseStatusText();
+        }
+
+        async function savePosSetting() {
+            const toggle = document.getElementById('settings-pos-confirm');
+            const v = toggle.checked ? 1 : 0;
+            posConfirmEnabled = v === 1;
+            try {
+                await invoke('set_pos_confirm_required', { value: v });
+                showToast(v === 1 ? 'POS tahsilat onayı açıldı' : 'POS tahsilat onayı kapatıldı');
+            } catch (e) { showToast('Hata: ' + e, 'error'); toggle.checked = posConfirmEnabled; }
         }
 
         async function saveBusinessName() {

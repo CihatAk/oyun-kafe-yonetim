@@ -38,6 +38,7 @@ fn main() {
             drinks::get_session_drink_items, drinks::adjust_stock,
             drinks::get_stock_movements, drinks::get_low_stock_items, drinks::get_stock_report,
             settings::get_low_stock_threshold, settings::set_low_stock_threshold,
+            settings::get_pos_confirm_required, settings::set_pos_confirm_required,
             settings::get_ui_config, settings::set_business_name,
             license::get_license_status, license::activate_license,
             auth::login, auth::logout, auth::get_current_user,

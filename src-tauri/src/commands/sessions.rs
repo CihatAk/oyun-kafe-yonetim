@@ -118,7 +118,7 @@ pub fn update_session_extra_controllers(station_id: String, extra_controllers: i
 }
 
 #[tauri::command]
-pub fn end_session(station_id: String, payment_method: String, custom_end_time: Option<String>, partial_payments_json: Option<String>, discount_amount: Option<f64>, discount_reason: Option<String>, state: State<AppState>) -> Result<SessionRecord, String> {
+pub fn end_session(station_id: String, payment_method: String, custom_end_time: Option<String>, partial_payments_json: Option<String>, discount_amount: Option<f64>, discount_reason: Option<String>, pos_reference: Option<String>, state: State<AppState>) -> Result<SessionRecord, String> {
     require_login(&state)?;
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
 
@@ -207,18 +207,23 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
                 params![Uuid::new_v4().to_string(), station_id, m, a, Local::now().to_rfc3339()]).map_err(|e| e.to_string())?;
         }
 
-        let hist_notes = if !fee_note.is_empty() { fee_note.clone() } else { notes.clone() };
+        let hist_notes = merge_pos_note(&notes, &fee_note, pos_reference.as_deref());
         let hist_id_inner = Uuid::new_v4().to_string();
         hist_id = hist_id_inner.clone();
         conn.execute("INSERT INTO session_history (id, station_name, customer, start_time, end_time, duration_minutes, total, payment_method, rate_type, drink_total, discount, discount_reason, notes, tags, extra_controllers, extra_fee) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![hist_id_inner, station_name, customer, start.to_rfc3339(), end.to_rfc3339(), dur_mins, total_final, final_pm, rate_used, drink_total, discount, discount_reason_saved, hist_notes, tags, extra_controllers, extra_fee]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE drink_orders SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
         conn.execute("UPDATE partial_payments SET session_id = ?1 WHERE session_id = ?2", params![hist_id_inner, station_id]).map_err(|e| e.to_string())?;
-        let audit_detail = if discount > 0.0 {
+        let mut audit_detail = if discount > 0.0 {
             format!("{} (₺{:.2}, indirim: ₺{:.2})", station_name, total_final, discount)
         } else {
             format!("{} (₺{:.2})", station_name, total_final)
         };
+        if let Some(pf_ref) = pos_reference.as_deref().map(str::trim) {
+            if !pf_ref.is_empty() {
+                audit_detail = format!("{} | POS Fiş: {}", audit_detail, pf_ref);
+            }
+        }
         log_audit_conn(&conn, &state, "end_session", "sessions", audit_detail.as_str());
         Ok(())
     })();
@@ -230,6 +235,17 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
     conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
 
     Ok(SessionRecord { id: hist_id, station_name, customer, start_time: start.to_rfc3339(), end_time: end.to_rfc3339(), duration_minutes: dur_mins, total: total_final, payment_method: final_pm, rate_type: rate_used, drink_total, discount, notes, tags, extra_controllers, extra_fee })
+}
+
+fn merge_pos_note(base_notes: &str, fee_note: &str, pos_reference: Option<&str>) -> String {
+    let base = if !fee_note.is_empty() { fee_note.to_string() } else { base_notes.to_string() };
+    match pos_reference.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(pf) => {
+            let pos_line = format!("POS Fiş: {}", pf);
+            if base.is_empty() { pos_line } else { format!("{}; {}", base, pos_line) }
+        }
+        None => base,
+    }
 }
 
 fn load_active(conn: &rusqlite::Connection, station_id: &str) -> Result<ActiveSession, String> {
@@ -270,5 +286,31 @@ pub fn transfer_session(station_id: String, target_station_id: String, state: St
     }
     conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     load_active(&conn, &target_station_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_pos_note;
+
+    #[test]
+    fn pos_note_eklendiginde_notesla_birlesir() {
+        assert_eq!(merge_pos_note("not", "", Some("1234")), "not; POS Fiş: 1234");
+    }
+
+    #[test]
+    fn pos_note_bosken_degisiklik_olmaz() {
+        assert_eq!(merge_pos_note("not", "", None), "not");
+        assert_eq!(merge_pos_note("not", "", Some("   ")), "not");
+    }
+
+    #[test]
+    fn pos_note_indirim_notuyla_birlesir() {
+        assert_eq!(merge_pos_note("oturum notu", "Manuel indirim: ₺5.00", Some("AB12")), "Manuel indirim: ₺5.00; POS Fiş: AB12");
+    }
+
+    #[test]
+    fn pos_note_tek_basina_kalabilir() {
+        assert_eq!(merge_pos_note("", "", Some("42")), "POS Fiş: 42");
+    }
 }
 

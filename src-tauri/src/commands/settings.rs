@@ -69,3 +69,19 @@ pub fn set_low_stock_threshold(value: i64, state: State<AppState>) -> Result<(),
     log_audit_conn(&conn, &state, "set_setting", "settings", format!("Düşük stok eşiği: {}", threshold).as_str());
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_pos_confirm_required(state: State<AppState>) -> Result<i64, String> {
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    Ok(get_setting_value(&conn, "pos_confirm_required").and_then(|v| v.parse().ok()).unwrap_or(1))
+}
+
+#[tauri::command]
+pub fn set_pos_confirm_required(value: i64, state: State<AppState>) -> Result<(), String> {
+    crate::commands::auth::require_admin(&state)?;
+    let v = if value > 0 { 1 } else { 0 };
+    let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
+    set_setting_value(&conn, "pos_confirm_required", &v.to_string())?;
+    log_audit_conn(&conn, &state, "set_setting", "settings", format!("POS tahsilat onayı: {}", if v == 1 { "açık" } else { "kapalı" }).as_str());
+    Ok(())
+}
