@@ -40,3 +40,6 @@ publickey.txt
 bilgi.txt
 *.key
 *.pub
+
+# Lisans yonetim gizli notlari (admin token / service key icerir)
+NOTES.md
