@@ -1,0 +1,18 @@
+# JiJi Game Center gitleaks yapilandirmasi
+# Varsayilan kurallar + bilincli olarak gomulen HERKESE ACIK degerler icin istisnalar.
+
+title = "JiJi Game Center gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Kasitli olarak gomulen herkese acik degerler (Supabase anon key, Ed25519 public key, sunucu URL)"
+regexes = [
+  # yeni lisans projesinin anon key JWT'si (tasarim geregi public)
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]+\.DCS0pvpEi0LhLJ2jxIBjTKoU8jn3xdnJvIZNZHQXgD0''',
+  # Ed25519 dogrulama public key (license.rs DEFAULT_PUBLIC_KEY_HEX)
+  '''77ca90c4e4d5cb1f7b520aa18bae7e2ffcbaede5bd314aab0ccc77a3cc093559''',
+  # lisans sunucusu adresi
+  '''lbgnrdozipzbcexvsboe''',
+]

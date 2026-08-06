@@ -10,6 +10,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks ile sir taramasi
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Yasakli dosya kontrolu (gizli dosyalar repoya girmemeli)
+        run: |
+          if git ls-files | grep -Ei '(^|/)(supabase\.json|license-config\.json|NOTES\.md|bilgi\.txt|secretkey\.txt|publickey\.txt)$|\.(key|pub)$'; then
+            echo "::error::Gizli dosya repoya eklenmis. Kaldirin: .gitignore'a alinmis dosyalar track edilmemeli."
+            exit 1
+          fi
+          echo "Gizli dosya kontrolu: TEMIZ"
+
   test:
     strategy:
       fail-fast: false
