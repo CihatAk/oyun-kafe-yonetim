@@ -67,13 +67,18 @@ fn license_anon_key() -> Option<String> {
 // â”€â”€â”€ Makine kodu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn machine_guid() -> String {
-    use winreg::enums::HKEY_LOCAL_MACHINE;
-    use winreg::RegKey;
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    hklm.open_subkey(r"SOFTWARE\Microsoft\Cryptography")
-        .ok()
-        .and_then(|k| k.get_value::<String, _>("MachineGuid").ok())
-        .unwrap_or_default()
+    #[cfg(windows)]
+    {
+        use winreg::enums::HKEY_LOCAL_MACHINE;
+        use winreg::RegKey;
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+        if let Ok(k) = hklm.open_subkey(r"SOFTWARE\Microsoft\Cryptography") {
+            if let Ok(guid) = k.get_value::<String, _>("MachineGuid") {
+                return guid;
+            }
+        }
+    }
+    String::new()
 }
 
 pub fn machine_id() -> String {
