@@ -12,15 +12,15 @@ use crate::db::AppState;
 
 pub const TRIAL_DAYS: i64 = 15;
 
-// Lisans sunucusu yapılandırması (build sabiti).
-// Lütfen kendi Supabase projenizin değerlerini girin.
-const LICENSE_SERVER_URL: &str = "https://YOUR-PROJECT-REF.supabase.co";
-const LICENSE_ANON_KEY: &str = "";
+// Lisans sunucusu yapÄ±landÄ±rmasÄ± (build sabiti).
+// LÃ¼tfen kendi Supabase projenizin deÄŸerlerini girin.
+const LICENSE_SERVER_URL: &str = "https://lbgnrdozipzbcexvsboe.supabase.co";
+const LICENSE_ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiZ25yZG96aXB6YmNleHZzYm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMTk5NTEsImV4cCI6MjEwMTU5NTk1MX0.DCS0pvpEi0LhLJ2jxIBjTKoU8jn3xdnJvIZNZHQXgD0";
 
-// Ed25519 doğrulama anahtarı (32 bayt, hex).
-// GİZLİ: Özel anahtar yalnızca lisans sunucusunda (Supabase edge function env) tutulur.
-// scripts/gen-license-keys.mjs ile üretilen public key buraya yazılır.
-pub const DEFAULT_PUBLIC_KEY_HEX: &str = "";
+// Ed25519 doÄŸrulama anahtarÄ± (32 bayt, hex).
+// GÄ°ZLÄ°: Ã–zel anahtar yalnÄ±zca lisans sunucusunda (Supabase edge function env) tutulur.
+// scripts/gen-license-keys.mjs ile Ã¼retilen public key buraya yazÄ±lÄ±r.
+pub const DEFAULT_PUBLIC_KEY_HEX: &str = "77ca90c4e4d5cb1f7b520aa18bae7e2ffcbaede5bd314aab0ccc77a3cc093559";
 
 fn public_key() -> Result<VerifyingKey, String> {
     let hex = std::env::var("LICENSE_PUBLIC_KEY")
@@ -28,14 +28,14 @@ fn public_key() -> Result<VerifyingKey, String> {
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| DEFAULT_PUBLIC_KEY_HEX.to_string());
     if hex.trim().is_empty() {
-        return Err("Lisans doğrulama anahtarı yapılandırılmamış.".into());
+        return Err("Lisans doÄŸrulama anahtarÄ± yapÄ±landÄ±rÄ±lmamÄ±ÅŸ.".into());
     }
-    let bytes = hex_to_bytes(&hex).ok_or("Lisans anahtarı geçersiz hex.")?;
+    let bytes = hex_to_bytes(&hex).ok_or("Lisans anahtarÄ± geÃ§ersiz hex.")?;
     if bytes.len() != 32 {
-        return Err("Lisans anahtarı 32 bayt olmalı.".into());
+        return Err("Lisans anahtarÄ± 32 bayt olmalÄ±.".into());
     }
     VerifyingKey::from_bytes(&bytes[..].try_into().map_err(|_| "anahtar boyutu".to_string())?)
-        .map_err(|e| format!("Lisans anahtarı okunamadı: {}", e))
+        .map_err(|e| format!("Lisans anahtarÄ± okunamadÄ±: {}", e))
 }
 
 fn license_server_url() -> Option<String> {
@@ -64,7 +64,7 @@ fn license_anon_key() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-// ─── Makine kodu ────────────────────────────────────────────
+// â”€â”€â”€ Makine kodu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn machine_guid() -> String {
     use winreg::enums::HKEY_LOCAL_MACHINE;
@@ -79,7 +79,7 @@ fn machine_guid() -> String {
 pub fn machine_id() -> String {
     let guid = machine_guid();
     if guid.is_empty() {
-        // Kayıt defteri okunamazsa kalıcı rastgele id (data dizininde saklanır).
+        // KayÄ±t defteri okunamazsa kalÄ±cÄ± rastgele id (data dizininde saklanÄ±r).
         let path = crate::db::get_data_dir().join(".machine-id");
         if let Ok(raw) = fs::read_to_string(&path) {
             if !raw.trim().is_empty() {
@@ -99,7 +99,7 @@ pub fn machine_id() -> String {
     result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-// ─── Token doğrulama ────────────────────────────────────────
+// â”€â”€â”€ Token doÄŸrulama â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
     if hex.len() % 2 != 0 {
@@ -124,12 +124,12 @@ fn encode_token(payload: &Value, sk: &SigningKey) -> String {
 fn parse_token_with(token: &str, pk: &VerifyingKey) -> Result<Value, String> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 2 {
-        return Err("Lisans token'ı bozuk.".into());
+        return Err("Lisans token'Ä± bozuk.".into());
     }
-    let msg_bytes = hex_to_bytes(parts[0]).ok_or("Lisans token'ı bozuk (payload).")?;
-    let sig_bytes = hex_to_bytes(parts[1]).ok_or("Lisans token'ı bozuk (imza).")?;
+    let msg_bytes = hex_to_bytes(parts[0]).ok_or("Lisans token'Ä± bozuk (payload).")?;
+    let sig_bytes = hex_to_bytes(parts[1]).ok_or("Lisans token'Ä± bozuk (imza).")?;
     if sig_bytes.len() != 64 {
-        return Err("Lisans imzası geçersiz.".into());
+        return Err("Lisans imzasÄ± geÃ§ersiz.".into());
     }
     let sig = Signature::from_bytes(
         sig_bytes[..]
@@ -137,11 +137,11 @@ fn parse_token_with(token: &str, pk: &VerifyingKey) -> Result<Value, String> {
             .map_err(|_| "imza boyutu".to_string())?,
     );
     pk.verify(&msg_bytes, &sig)
-        .map_err(|_| "Lisans imzası doğrulanamadı.".to_string())?;
+        .map_err(|_| "Lisans imzasÄ± doÄŸrulanamadÄ±.".to_string())?;
     let payload: Value =
-        serde_json::from_slice(&msg_bytes).map_err(|_| "Lisans içeriği okunamadı.".to_string())?;
+        serde_json::from_slice(&msg_bytes).map_err(|_| "Lisans iÃ§eriÄŸi okunamadÄ±.".to_string())?;
     if payload.get("v").and_then(|v| v.as_i64()) != Some(1) {
-        return Err("Desteklenmeyen lisans sürümü.".into());
+        return Err("Desteklenmeyen lisans sÃ¼rÃ¼mÃ¼.".into());
     }
     Ok(payload)
 }
@@ -153,7 +153,7 @@ fn parse_token(token: &str) -> Result<Value, String> {
 
 fn is_expired(payload: &Value) -> bool {
     let Some(exp) = payload.get("expires_at").and_then(|v| v.as_str()) else {
-        return false; // süresiz (ömür boyu)
+        return false; // sÃ¼resiz (Ã¶mÃ¼r boyu)
     };
     match DateTime::parse_from_rfc3339(exp) {
         Ok(dt) => Local::now() > dt.with_timezone(&Local),
@@ -165,7 +165,7 @@ fn elapsed_trial_days(start: DateTime<Local>) -> i64 {
     (Local::now() - start).num_days()
 }
 
-// ─── Durum ──────────────────────────────────────────────────
+// â”€â”€â”€ Durum â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Clone, serde::Serialize)]
 pub struct LicenseStatus {
@@ -208,7 +208,7 @@ pub fn get_license_status(state: State<AppState>) -> Result<LicenseStatus, Strin
                 license_id: None,
                 business_name: None,
                 trial_days_left: None,
-                message: Some("Bu lisans farklı bir bilgisayara bağlı.".into()),
+                message: Some("Bu lisans farklÄ± bir bilgisayara baÄŸlÄ±.".into()),
             });
         }
         if is_revoked(&conn) {
@@ -217,7 +217,7 @@ pub fn get_license_status(state: State<AppState>) -> Result<LicenseStatus, Strin
                 license_id: payload.get("license_id").and_then(|v| v.as_str()).map(String::from),
                 business_name: payload.get("business_name").and_then(|v| v.as_str()).map(String::from),
                 trial_days_left: None,
-                message: Some("Bu lisans iptal edilmiştir. Satıcıyla iletişime geçin.".into()),
+                message: Some("Bu lisans iptal edilmiÅŸtir. SatÄ±cÄ±yla iletiÅŸime geÃ§in.".into()),
             });
         }
         if is_expired(&payload) {
@@ -226,7 +226,7 @@ pub fn get_license_status(state: State<AppState>) -> Result<LicenseStatus, Strin
                 license_id: payload.get("license_id").and_then(|v| v.as_str()).map(String::from),
                 business_name: payload.get("business_name").and_then(|v| v.as_str()).map(String::from),
                 trial_days_left: None,
-                message: Some("Lisans süresi doldu.".into()),
+                message: Some("Lisans sÃ¼resi doldu.".into()),
             });
         }
         return Ok(licensed_status(&payload));
@@ -249,7 +249,7 @@ pub fn get_license_status(state: State<AppState>) -> Result<LicenseStatus, Strin
             license_id: None,
             business_name: None,
             trial_days_left: Some(0),
-            message: Some("Deneme süresi doldu. Lisans anahtarı girin.".into()),
+            message: Some("Deneme sÃ¼resi doldu. Lisans anahtarÄ± girin.".into()),
         });
     }
     Ok(LicenseStatus {
@@ -261,17 +261,17 @@ pub fn get_license_status(state: State<AppState>) -> Result<LicenseStatus, Strin
     })
 }
 
-// ─── Aktivasyon ─────────────────────────────────────────────
+// â”€â”€â”€ Aktivasyon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn activate_license(key: String, state: State<'_, AppState>) -> Result<LicenseStatus, String> {
     let key = key.trim().to_string();
     if key.is_empty() {
-        return Err("Lisans anahtarı boş olamaz.".into());
+        return Err("Lisans anahtarÄ± boÅŸ olamaz.".into());
     }
     let machine = machine_id();
-    let server = license_server_url().ok_or("Lisans sunucusu yapılandırılmamış.")?;
-    let anon = license_anon_key().ok_or("Lisans sunucusu anahtarı bulunamadı.")?;
+    let server = license_server_url().ok_or("Lisans sunucusu yapÄ±landÄ±rÄ±lmamÄ±ÅŸ.")?;
+    let anon = license_anon_key().ok_or("Lisans sunucusu anahtarÄ± bulunamadÄ±.")?;
     let url = format!("{}/functions/v1/license/activate", server.trim_end_matches('/'));
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
@@ -284,30 +284,30 @@ pub async fn activate_license(key: String, state: State<'_, AppState>) -> Result
         .json(&json!({ "key": key, "machine_hash": machine }))
         .send()
         .await
-        .map_err(|e| format!("Lisans sunucusuna ulaşılamadı: {}", e))?;
+        .map_err(|e| format!("Lisans sunucusuna ulaÅŸÄ±lamadÄ±: {}", e))?;
     let status = resp.status();
     let body: Value = resp.json().await.map_err(|_| json!({})).unwrap_or_default();
     if !status.is_success() {
         let msg = body
             .get("error")
             .and_then(|v| v.as_str())
-            .unwrap_or("Lisans sunucusu hatası.");
+            .unwrap_or("Lisans sunucusu hatasÄ±.");
         return Err(msg.to_string());
     }
     let token = body
         .get("token")
         .and_then(|v| v.as_str())
-        .ok_or("Sunucu lisans token'ı döndürmedi.")?;
+        .ok_or("Sunucu lisans token'Ä± dÃ¶ndÃ¼rmedi.")?;
     let payload = parse_token(token)?;
     if payload.get("machine_hash").and_then(|v| v.as_str()) != Some(machine.as_str()) {
-        return Err("Lisans bu bilgisayara bağlanmadı.".into());
+        return Err("Lisans bu bilgisayara baÄŸlanmadÄ±.".into());
     }
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     set_setting_value(&conn, "license_token", token)?;
     Ok(licensed_status(&payload))
 }
 
-// ─── Online kontrol (iptal/geçerlilik) ──────────────────────
+// â”€â”€â”€ Online kontrol (iptal/geÃ§erlilik) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn is_revoked(conn: &Connection) -> bool {
     get_setting_value(conn, "license_revoked").map(|v| v == "1").unwrap_or(false)
@@ -321,8 +321,8 @@ fn clear_revoked(conn: &Connection) {
     let _ = set_setting_value(conn, "license_revoked", "0");
 }
 
-/// Lisans sunucusuna tek seferlik kontrol. İptal edilmişse bayrağı işaretler.
-/// Ağ hatasında sessizce geçer (offline çalışma korunur).
+/// Lisans sunucusuna tek seferlik kontrol. Ä°ptal edilmiÅŸse bayraÄŸÄ± iÅŸaretler.
+/// AÄŸ hatasÄ±nda sessizce geÃ§er (offline Ã§alÄ±ÅŸma korunur).
 pub fn check_license_online() -> Result<(), String> {
     let conn = Connection::open(crate::db::get_db_path()).map_err(|e| e.to_string())?;
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")
@@ -360,13 +360,13 @@ pub fn check_license_online() -> Result<(), String> {
         .send()
         .map_err(|e| format!("kontrol edilemedi: {}", e))?;
     if !resp.status().is_success() {
-        return Err(format!("sunucu hatası: {}", resp.status()));
+        return Err(format!("sunucu hatasÄ±: {}", resp.status()));
     }
     let body: Value = resp.json().map_err(|_| json!({})).unwrap_or_default();
     let valid = body.get("valid").and_then(|v| v.as_bool()).unwrap_or(true);
     if !valid {
         mark_revoked(&conn);
-        return Err("lisans iptal edilmiş".into());
+        return Err("lisans iptal edilmiÅŸ".into());
     }
     clear_revoked(&conn);
     Ok(())
