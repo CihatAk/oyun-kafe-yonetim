@@ -139,6 +139,32 @@ dosyasinda saklanir (git'e commit edilmez):
   supabase.json'u gunceller (eskiyi `.bak-*` olarak yedekler)
 - Rotasyondan sonra desktop uygulamayi yeniden baslatmak ve paneli yeniden deploy etmek gerekir
 
+## Lisans Sistemi (v2.0.8+)
+
+Uygulama ucerinci tarafa satilmak uzere lisans modeliyle calisir:
+
+- **15 gunluk deneme** — lisans anahtari olmadan tüm ozellikler acik
+- **Omur boyu lisans** — `JGJC-XXXXX-XXXXX-XXXXX` formatinda anahtar, **makineye bagli**
+- **Aktivasyon** — Ayarlar -> Lisans -> anahtar gir -> Aktif Et (internet gerekir, bir kez)
+- **Sonraki acilislar** — tamamen offline dogrulama (gömülü public key + makine hash)
+- **Online kontrol** — 6 saatte bir iptal/gecerlilik kontrolu; iptal edilirse uygulama kilitlenir
+- **Beyaz etiket** — Ayarlar'dan isletme adi degistirilebilir (pencereler + mobil panel)
+
+Mimari:
+
+| Katman | Dosya | Aciklama |
+|--------|-------|----------|
+| Uygulama (dogrulama) | `src-tauri/src/license.rs` | Ed25519 dogrulama, makine kodu, deneme/durum yonetimi |
+| Sunucu (imzalama) | `supabase/functions/license/index.ts` | Supabase Edge Function: generate / activate / check |
+| Veri | `supabase/migrations/0001_licenses.sql` | `licenses` tablosu + RLS |
+| Anahtar cifti | `scripts/gen-license-keys.mjs` | Ed25519 key cifti uretici |
+| Deploy | `scripts/deploy-license.ps1` | Edge function + secret + uygulama sabitlerini kurar |
+| Yonetim | `scripts/license-cli.ps1` | Anahtar uret / listele / iptal (gizli token'i yerel config'ten okur) |
+
+> **Guvenlik:** `admin_token` ve `service_key` yalnizca `%LOCALAPPDATA%/oyun-kafe-yonetim/license-config.json`
+> dosyasinda durur, asla commit edilmez. Gizli anahtar sadece Supabase edge function env'indedir;
+> uygulamada yalnizca public key bulunur.
+
 ## Proje Yapisi
 
 ```
@@ -150,8 +176,16 @@ oyun-kafe-yonetim/
 │   ├── tauri.conf.json         # Tauri yapilandirmasi
 │   ├── build.rs                # Derleme scripti
 │   ├── icons/                  # Uygulama ikonlari
+│   ├── web/                    # Mobil/panel web arayuzu
 │   └── src/
-│       └── main.rs             # Rust backend (SQLite + Tauri commands)
+│       ├── main.rs             # Rust backend (SQLite + Tauri commands)
+│       ├── license.rs          # Lisans dogrulama (Ed25519, makine, deneme)
+│       └── commands/           # Tauri command modulleri
+├── supabase/
+│   ├── config.toml
+│   ├── functions/license/      # Lisans edge function
+│   └── migrations/             # SQL migrationlari
+├── scripts/                    # Deploy / yedekleme / lisans yonetim araclari
 └── README.md
 ```
 

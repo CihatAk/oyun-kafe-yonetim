@@ -2,7 +2,7 @@ use std::fs;
 use std::time::Duration;
 
 use chrono::{DateTime, Local};
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use tauri::State;
@@ -109,16 +109,6 @@ fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
         .collect()
-}
-
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
-}
-
-fn encode_token(payload: &Value, sk: &SigningKey) -> String {
-    let msg = payload.to_string();
-    let sig = sk.sign(msg.as_bytes());
-    format!("{}.{}", bytes_to_hex(msg.as_bytes()), bytes_to_hex(&sig.to_bytes()))
 }
 
 fn parse_token_with(token: &str, pk: &VerifyingKey) -> Result<Value, String> {
@@ -383,6 +373,17 @@ pub fn start_license_watch() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::{Signer, SigningKey};
+
+    fn bytes_to_hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{:02x}", b)).collect()
+    }
+
+    fn encode_token(payload: &Value, sk: &SigningKey) -> String {
+        let msg = payload.to_string();
+        let sig = sk.sign(msg.as_bytes());
+        format!("{}.{}", bytes_to_hex(msg.as_bytes()), bytes_to_hex(&sig.to_bytes()))
+    }
 
     fn test_signing_key() -> SigningKey {
         SigningKey::from_bytes(&[7u8; 32])
