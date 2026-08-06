@@ -5,6 +5,7 @@ mod db;
 mod queries;
 mod sync;
 mod web;
+mod license;
 mod commands;
 
 use db::AppState;
@@ -37,6 +38,8 @@ fn main() {
             drinks::get_session_drink_items, drinks::adjust_stock,
             drinks::get_stock_movements, drinks::get_low_stock_items, drinks::get_stock_report,
             settings::get_low_stock_threshold, settings::set_low_stock_threshold,
+            settings::get_ui_config, settings::set_business_name,
+            license::get_license_status, license::activate_license,
             auth::login, auth::logout, auth::get_current_user,
             auth::list_users, auth::add_user, auth::update_user, auth::remove_user,
             auth::change_password, auth::force_change_password, auth::reset_user_password,
@@ -52,6 +55,7 @@ fn main() {
                 .unwrap_or(web::WEB_PORT);
             std::thread::spawn(move || web::run(db_path, port));
             sync::start();
+            license::start_license_watch();
             // Güvenlik ağı: on_page_load tetiklenmezse pencereyi yine de göster
             let handle = app.handle();
             std::thread::spawn(move || {

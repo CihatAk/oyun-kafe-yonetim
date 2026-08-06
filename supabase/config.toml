@@ -1,0 +1,6 @@
+# Supabase CLI yapılandırması — lisans sunucusu
+# Kurulum: supabase init (gerekirse) sonra supabase link --project-ref <ref>
+project_id = "oyun-kafe-license"
+
+[functions.license]
+verify_jwt = false

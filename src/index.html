@@ -182,7 +182,7 @@
                 <div class="flex items-center gap-3">
                     <div class="gh-logo">🎮</div>
                     <div>
-                        <h1 class="text-lg font-semibold text-slate-300 leading-tight">JiJi Game Center - PlayStation & VR</h1>
+                        <h1 id="app-title" class="text-lg font-semibold text-slate-300 leading-tight">JiJi Game Center - PlayStation & VR</h1>
                         <p class="text-xs text-slate-500">Saatlik ücret takip ve yönetim sistemi</p>
                     </div>
                 </div>
@@ -195,6 +195,7 @@
                         <button onclick="openPasswordModal()" class="px-2 py-0.5 bg-slate-600/70 hover:bg-slate-500 rounded-lg text-xs font-medium transition" title="Şifre Değiştir">🔑</button>
                         <button onclick="doLogout()" class="px-2 py-0.5 bg-red-600/70 hover:bg-red-500 rounded-lg text-xs font-medium transition" title="Çıkış">🚪 Çıkış</button>
                     </div>
+                    <button id="license-chip" class="hidden px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm font-medium transition" title="Lisans durumu"></button>
                     <button onclick="toggleFullscreen()" class="px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm font-medium transition" title="Tam Ekran (F11)">
                         <span id="fullscreen-icon">⛶</span>
                     </button>
@@ -214,6 +215,7 @@
                 <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="tab-btn">💰 Fiyatlandırma</button>
                 <button onclick="switchTab('logs')" id="tab-btn-logs" class="tab-btn hidden">📜 Loglar</button>
                 <button onclick="switchTab('personel')" id="tab-btn-personel" class="tab-btn">👥 Personel</button>
+                <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn">⚙️ Ayarlar</button>
             </nav>
         </header>
 
@@ -559,9 +561,49 @@
                 </div>
             </div>
         </div>
+        <!-- ═══ Ayarlar ═══ -->
+        <div id="tab-settings" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                    <h2 class="text-xl font-semibold">⚙️ Ayarlar</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">İşletme bilgilerini düzenleyin</p>
+                </div>
+            </div>
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-700/50">
+                    <h3 class="text-lg font-semibold flex items-center gap-2">🏢 İşletme Bilgileri</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Bu isim başlıkta, giriş ekranında, fişlerde ve raporlarda görünür</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-slate-300 text-sm font-medium mb-2">İşletme Adı</label>
+                        <input type="text" id="settings-business-name" maxlength="80" class="w-full max-w-xl bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="JiJi Game Center - PlayStation & VR">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="saveBusinessName()" class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-medium transition flex items-center gap-2">💾 Kaydet</button>
+                        <span id="settings-status" class="text-xs text-slate-500"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-700/50">
+                    <h3 class="text-lg font-semibold flex items-center gap-2">🔐 Lisans</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Yazılımı kullanmak için geçerli bir lisans gereklidir</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="text-sm text-slate-300" id="license-status-text">Durum kontrol ediliyor...</div>
+                    <div>
+                        <label class="block text-slate-300 text-sm font-medium mb-2">Lisans Anahtarı</label>
+                        <input type="text" id="settings-license-key" placeholder="JGJC-XXXXX-XXXXX-XXXXX" autocomplete="off" class="w-full max-w-xl bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-center font-mono text-white focus:outline-none focus:border-cyan-500 transition">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="doActivateLicense('settings-license-key','settings-license-error','settings-license-btn')" id="settings-license-btn" class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-medium transition flex items-center gap-2">🔓 Aktif Et</button>
+                        <span id="settings-license-error" class="text-xs text-red-400"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- ═══ MODALLER ═══ -->
 
     <!-- Yazdırma Kapsayıcısı -->
     <div id="print-container" aria-hidden="true"></div>
@@ -571,7 +613,7 @@
         <div class="glass rounded-xl p-10 w-[420px] slide-in border border-slate-600">
             <div class="flex flex-col items-center mb-8">
                 <div class="gh-logo w-16 h-16 text-3xl mb-4">🎮</div>
-                <h3 class="text-2xl font-semibold">JiJi Game Center - PlayStation & VR</h3>
+                <h3 id="login-title" class="text-2xl font-semibold">JiJi Game Center - PlayStation & VR</h3>
                 <p class="text-slate-400 text-sm">Devam etmek için giriş yapın</p>
             </div>
             <div class="space-y-4">
@@ -585,6 +627,26 @@
                 </div>
                 <p id="login-error" class="hidden text-red-400 text-sm"></p>
                 <button onclick="doLogin()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition">Giriş Yap</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lisans Kilidi Ekranı -->
+    <div id="license-overlay" class="hidden fixed inset-0 bg-slate-950 flex items-center justify-center" style="z-index:100">
+        <div class="glass rounded-xl p-10 w-[460px] slide-in border border-slate-600">
+            <div class="flex flex-col items-center mb-8">
+                <div class="gh-logo w-16 h-16 text-3xl mb-4">🔐</div>
+                <h3 class="text-2xl font-semibold">Lisans Gerekli</h3>
+                <p class="text-slate-400 text-sm text-center mt-2 leading-relaxed" id="license-overlay-msg"></p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Lisans Anahtarı</label>
+                    <input type="text" id="license-key-input" placeholder="JGJC-XXXXX-XXXXX-XXXXX" autocomplete="off" class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 text-center font-mono focus:outline-none focus:border-cyan-500" onkeydown="if(event.key==='Enter')doActivateLicense('license-key-input','license-key-error','license-activate-btn')">
+                </div>
+                <p id="license-key-error" class="hidden text-red-400 text-sm"></p>
+                <button onclick="doActivateLicense('license-key-input','license-key-error','license-activate-btn')" id="license-activate-btn" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition">Aktif Et</button>
+                <p class="text-center text-xs text-slate-500">Aktivasyon için internet bağlantısı gerekir.</p>
             </div>
         </div>
     </div>
@@ -1185,6 +1247,101 @@
     <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-600 text-white p-4 z-[100] text-center font-medium"></div>
 
     <script>
+        var businessName = 'JiJi Game Center - PlayStation & VR';
+        var businessNameUpper = 'JİJİ GAME CENTER - PLAYSTATION & VR';
+        var licenseStatus = null;
+
+        async function applyUiConfig() {
+            try {
+                const cfg = await invoke('get_ui_config');
+                businessName = cfg.business_name;
+                businessNameUpper = cfg.business_name_upper;
+                document.getElementById('app-title').textContent = businessName;
+                document.getElementById('login-title').textContent = businessName;
+                document.title = businessName;
+                try { if (window.__TAURI__ && window.__TAURI__.window && window.__TAURI__.window.appWindow) { window.__TAURI__.window.appWindow.setTitle(businessName); } } catch (e) { }
+            } catch (e) { console.error('UI config yüklenemedi: ' + e); }
+        }
+
+        // ─── Lisans ─────────────────────────────────────────
+
+        function licenseStatusText() {
+            if (!licenseStatus) return 'Durum bilinmiyor';
+            if (licenseStatus.state === 'licensed') {
+                return '✅ Lisanslı' + (licenseStatus.license_id ? ' — ' + licenseStatus.license_id : '');
+            }
+            if (licenseStatus.state === 'trial') {
+                return '🧪 Deneme sürümü — ' + (licenseStatus.trial_days_left != null ? licenseStatus.trial_days_left + ' gün kaldı' : '');
+            }
+            if (licenseStatus.state === 'expired') return '❌ ' + (licenseStatus.message || 'Lisans süresi doldu');
+            return '🔒 ' + (licenseStatus.message || 'Lisans geçersiz');
+        }
+
+        function applyLicenseStatus() {
+            var chip = document.getElementById('license-chip');
+            var overlay = document.getElementById('license-overlay');
+            if (!chip || !overlay) return;
+            if (licenseStatus && licenseStatus.state === 'trial') {
+                chip.classList.remove('hidden');
+                chip.textContent = '🧪 Deneme — ' + licenseStatus.trial_days_left + ' gün';
+                overlay.classList.add('hidden');
+            } else if (licenseStatus && licenseStatus.state === 'licensed') {
+                chip.classList.remove('hidden');
+                chip.textContent = '✅ Lisanslı';
+                overlay.classList.add('hidden');
+            } else {
+                chip.classList.add('hidden');
+                overlay.classList.remove('hidden');
+                document.getElementById('license-overlay-msg').textContent =
+                    (licenseStatus && licenseStatus.message) || 'Bu yazılımı kullanmak için geçerli bir lisans anahtarı gerekir.';
+            }
+        }
+
+        async function refreshLicenseStatus() {
+            try { licenseStatus = await invoke('get_license_status'); } catch (e) { licenseStatus = { state: 'locked', message: String(e) }; }
+            applyLicenseStatus();
+        }
+
+        async function checkLicenseGate() {
+            await refreshLicenseStatus();
+            if (licenseStatus.state === 'expired' || licenseStatus.state === 'locked') return;
+            await continueAfterLicense();
+        }
+
+        async function continueAfterLicense() {
+            try { currentUser = await invoke('get_current_user'); } catch (e) { currentUser = null; }
+            if (currentUser) {
+                await enterApp();
+            } else {
+                document.getElementById('login-overlay').classList.remove('hidden');
+                document.getElementById('app').classList.add('hidden');
+            }
+        }
+
+        async function doActivateLicense(inputId, errorId, btnId) {
+            var input = document.getElementById(inputId);
+            var err = document.getElementById(errorId);
+            var btn = document.getElementById(btnId);
+            var k = (input.value || '').trim();
+            if (!k) { if (err) { err.textContent = 'Lisans anahtarını girin.'; err.classList.remove('hidden'); } return; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Doğrulanıyor...'; }
+            try {
+                licenseStatus = await invoke('activate_license', { key: k });
+                if (err) { err.classList.add('hidden'); err.textContent = ''; }
+                if (input) input.value = '';
+                applyLicenseStatus();
+                var st = document.getElementById('license-status-text');
+                if (st) st.textContent = licenseStatusText();
+                showToast('Lisans aktif!');
+                if (document.getElementById('app').classList.contains('hidden')) await continueAfterLicense();
+            } catch (e) {
+                if (err) { err.textContent = String(e); err.classList.remove('hidden'); }
+                else showToast('Hata: ' + e, 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Aktif Et'; }
+            }
+        }
+
         function showErrorBanner(msg) {
             var b = document.getElementById('error-banner');
             if (b) {
@@ -1275,6 +1432,7 @@
             if (tab === 'gunsonu') loadDayEndReport();
             if (tab === 'logs') renderAuditLog();
             if (tab === 'personel') loadPersonel();
+            if (tab === 'settings') loadSettings();
             if (tab === 'dashboard') { loadDashboard(); startLiveUpdates(); } else { stopLiveUpdates(); }
         }
 
@@ -1828,7 +1986,7 @@
             var html =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
+                '<div class="text-base font-bold tracking-wide">' + businessNameUpper + '</div>' +
                 '<div class="text-xs text-gray-500">Stok Raporu — ' + r.date + '</div></div>' +
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-sm"><div class="flex justify-between"><span>Toplam Ürün</span><span>' + r.total_items + '</span></div>' +
@@ -1843,7 +2001,7 @@
                 '<table style="' + tStyle + '"><thead><tr>' +
                 '<th style="' + thStyle + '">Ürün</th><th style="' + thStyle + '">Kategori</th><th style="' + thStyle + '">Satış</th><th style="' + thStyle + '">Maliyet</th><th style="' + thStyle + '">Stok</th><th style="' + thStyle + '">Min</th><th style="' + thStyle + '">Durum</th><th style="' + thStyle + '">Satılan (Tümü)</th><th style="' + thStyle + '">Ciro</th><th style="' + thStyle + '">Stok Değeri</th>' +
                 '</tr></thead><tbody>' + rows + '</tbody></table>' +
-                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • JiJi Game Center - PlayStation & VR</div>';
+                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • ' + businessName + '</div>';
             printHTML(html);
         }
 
@@ -2537,13 +2695,8 @@
         var lastUsers = [];
 
         async function initAuth() {
-            try { currentUser = await invoke('get_current_user'); } catch (e) { currentUser = null; }
-            if (currentUser) {
-                await enterApp();
-            } else {
-                document.getElementById('login-overlay').classList.remove('hidden');
-                document.getElementById('app').classList.add('hidden');
-            }
+            applyUiConfig();
+            await checkLicenseGate();
         }
 
         async function enterApp() {
@@ -2608,11 +2761,33 @@
             document.getElementById('current-role-label').textContent = '-';
         }
 
+        // ─── Ayarlar ──────────────────────────────────────
+
+        async function loadSettings() {
+            try {
+                const cfg = await invoke('get_ui_config');
+                document.getElementById('settings-business-name').value = cfg.business_name;
+            } catch (e) { console.error(e); }
+            await refreshLicenseStatus();
+            document.getElementById('license-status-text').textContent = licenseStatusText();
+        }
+
+        async function saveBusinessName() {
+            var v = document.getElementById('settings-business-name').value.trim();
+            if (!v) { showToast('İşletme adı boş olamaz', 'error'); return; }
+            try {
+                await invoke('set_business_name', { name: v });
+                await applyUiConfig();
+                showToast('İşletme adı güncellendi');
+            } catch (e) { showToast('Hata: ' + e, 'error'); }
+        }
+
         function applyRoleGating() {
             var isAdmin = currentUser && currentUser.role === 'admin';
             document.getElementById('add-user-btn').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-personel').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-pricing').classList.toggle('hidden', !isAdmin);
+            document.getElementById('tab-btn-settings').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-btn-logs').classList.toggle('hidden', !isAdmin);
             document.getElementById('low-stock-setting').classList.toggle('hidden', !isAdmin);
             document.getElementById('add-drink-btn').classList.toggle('hidden', !isAdmin);
@@ -2624,6 +2799,7 @@
             if (!isAdmin && currentTab === 'personel') switchTab('dashboard');
             if (!isAdmin && currentTab === 'logs') switchTab('dashboard');
             if (!isAdmin && currentTab === 'pricing') switchTab('dashboard');
+            if (!isAdmin && currentTab === 'settings') switchTab('dashboard');
             if (currentTab === 'drinks') loadDrinks();
         }
 
@@ -2814,7 +2990,7 @@
             document.getElementById('print-area').innerHTML =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
+                '<div class="text-base font-bold tracking-wide">' + businessNameUpper + '</div>' +
                 '<div class="text-xs text-gray-500">Oturum Fişi</div>' +
                 '<div class="text-xs text-gray-500">' + end.toLocaleString('tr-TR') + '</div>' +
                 '</div>' +
@@ -2959,7 +3135,7 @@
             var html =
                 '<div class="text-center mb-3">' +
                 '<div class="text-2xl mb-1">🎮</div>' +
-                '<div class="text-base font-bold tracking-wide">JİJİ GAME CENTER - PLAYSTATION & VR</div>' +
+                '<div class="text-base font-bold tracking-wide">' + businessNameUpper + '</div>' +
                 '<div class="text-xs text-gray-500">Gün Sonu Raporu</div>' +
                 '<div class="text-xs text-gray-500">' + d + '</div>' +
                 '</div>' +
@@ -2980,7 +3156,7 @@
                 '<div class="border-t-2 border-dashed border-black my-2"></div>' +
                 '<div class="text-xs font-bold mb-1">🖥️ Açılan Oturumlar (Gün Sonuna Kadar — ' + r.session_details.length + ' oturum)</div>' +
                 '<table style="' + tStyle + '"><thead><tr><th style="' + thStyle + '">İstasyon</th><th style="' + thStyle + '">Saat</th><th style="' + thStyle + '">Süre</th><th style="' + thStyle + '">Ödeme</th><th style="' + thStyle + '">İçecek</th><th style="' + thStyle + '">İndirim</th><th style="' + thStyle + '">Toplam</th></tr></thead><tbody>' + sessionRows + '</tbody></table>' +
-                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • JiJi Game Center - PlayStation & VR</div>';
+                '<div class="text-center text-xs text-gray-500 mt-3">' + new Date().toLocaleString('tr-TR') + ' • ' + businessName + '</div>';
             printHTML(html);
         }
 

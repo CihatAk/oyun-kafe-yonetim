@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>JiJi Game Center — Mobil</title>
+<title>__BUSINESS_NAME__ — Mobil</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; }
   input, textarea, select { -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; }
@@ -149,7 +149,7 @@
 
 <div id="boot-screen" class="overlay">
   <div class="overlay-box">
-    <h1>🎮 JiJi Game Center</h1>
+    <h1>🎮 __BUSINESS_NAME__</h1>
     <p>Mobil görüntüleme paneline bağlanıyor…</p>
     <div class="err-txt" id="boot-err"></div>
     <button class="btn small hidden" id="boot-retry" style="margin-top:10px">Tekrar dene</button>
@@ -157,7 +157,7 @@
 </div>
 
 <header class="hidden" id="app-header">
-  <div class="title"><span class="dot" id="status-dot"></span><span>JiJi Game Center</span></div>
+  <div class="title"><span class="dot" id="status-dot"></span><span>__BUSINESS_NAME__</span></div>
   <div class="actions">
     <span id="clock"></span>
     <span id="last-upd">--:--</span>
@@ -633,7 +633,7 @@
   function buildReport(de, date){
     var el = $('de-report');
     if(!de){
-      el.innerHTML = '<h1>🎮 JiJi Game Center</h1><h2>Gün Sonu Raporu</h2>' +
+      el.innerHTML = '<h1>🎮 __BUSINESS_NAME__</h1><h2>Gün Sonu Raporu</h2>' +
         '<p class="rd">Tarih: ' + fmtDate(date) + '</p>' +
         '<p class="rf">Bu tarih için kayıt bulunamadı.</p>';
       return;
@@ -649,7 +649,7 @@
       ['Kart', fmt(card)]
     ];
     if(de.other_revenue > 0) rows.push(['Diğer', fmt(de.other_revenue)]);
-    var h = '<h1>🎮 JiJi Game Center</h1><h2>Gün Sonu Raporu</h2><p class="rd">Tarih: ' + fmtDate(date) + '</p>';
+    var h = '<h1>🎮 __BUSINESS_NAME__</h1><h2>Gün Sonu Raporu</h2><p class="rd">Tarih: ' + fmtDate(date) + '</p>';
     h += '<table>' + rows.map(function(r){ return '<tr><td>' + r[0] + '</td><td class="amt">' + r[1] + '</td></tr>'; }).join('') + '</table>';
 
     var drinks = de.drink_details && de.drink_details.length ? de.drink_details : [];

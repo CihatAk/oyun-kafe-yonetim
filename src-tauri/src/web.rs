@@ -122,8 +122,19 @@ fn drop_token(tok: &str) {
     }
 }
 
-fn rendered_index() -> String {
+fn rendered_index(db_path: &Path) -> String {
     let mut out = INDEX.to_string();
+    let business_name = Connection::open(db_path)
+        .ok()
+        .and_then(|conn| {
+            conn.query_row("SELECT value FROM settings WHERE key = 'business_name'", [], |r| r.get::<_, String>(0)).ok()
+        })
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| crate::commands::settings::DEFAULT_BUSINESS_NAME.to_string());
+    out = out
+        .replace("__BUSINESS_NAME_UPPER__", &business_name.to_uppercase())
+        .replace("__BUSINESS_NAME__", &business_name);
     if let Some(raw) = std::fs::read_to_string(crate::db::get_data_dir().join("supabase.json")).ok() {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
             let url = v["url"].as_str().unwrap_or("");
@@ -155,7 +166,7 @@ fn handle_request(db_path: &Path, mut request: tiny_http::Request) {
     }
 
     let resp: HttpResp = if url == "/" || url == "/index.html" || url.starts_with("/web") {
-        html_resp(200, &rendered_index())
+        html_resp(200, &rendered_index(db_path))
     } else if url.starts_with("/api/") {
         route_api(db_path, &method, &url, &body, auth.as_deref())
     } else {
