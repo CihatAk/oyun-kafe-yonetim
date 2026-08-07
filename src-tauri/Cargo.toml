@@ -1,6 +1,6 @@
 [package]
 name = "oyun-kafe-yonetim"
-version = "2.0.9"
+version = "2.1.0"
 description = "JiJi Game Center - PlayStation & VR"
 authors = ["JiJi Game Center"]
 license = "MIT"

@@ -30,12 +30,14 @@ pub fn rate_type_for<'a>(payment_method: &str, fallback: &'a str) -> &'a str {
 
 pub fn session_fee(
     conn: &Connection,
-    _station_id: &str,
+    station_id: &str,
     rate_type: &str,
     start_str: &str,
     paused_at: Option<&str>,
     total_paused: i64,
     extra_controllers: i64,
+    extra_secs: f64,
+    extra_since: Option<&str>,
 ) -> (i64, i64, f64, f64, bool) {
     let start = DateTime::parse_from_rfc3339(start_str)
         .map(|d| d.with_timezone(&Local))
@@ -54,17 +56,26 @@ pub fn session_fee(
     let mins = eff_secs / 60;
     let secs = eff_secs % 60;
     let pricing = AppState::load_pricing_conn(conn);
+    let st_type: String = conn.query_row("SELECT station_type FROM stations WHERE id = ?1", params![station_id], |r| r.get(0)).unwrap_or_else(|_| "standard".into());
     let per_min = if rate_type == "nakit" {
-        pricing.cash_per_minute
+        if st_type == "vr" { pricing.vr_cash_per_minute } else { pricing.cash_per_minute }
     } else {
-        pricing.card_per_minute
+        if st_type == "vr" { pricing.vr_card_per_minute } else { pricing.card_per_minute }
     };
     let round_mins = pricing.round_minutes.max(1);
     let chunks = ((mins as f64) / (round_mins as f64)).ceil() as i64;
     let rounded = chunks * round_mins;
     let fee = (rounded as f64 * per_min).max(pricing.min_charge);
-    let extra_per_min = pricing.extra_controller_per_hour / 60.0;
-    let extra_fee = extra_controllers.max(0) as f64 * extra_per_min * (rounded as f64);
+    let mut live_extra_secs = extra_secs;
+    if extra_controllers > 0 && !is_paused {
+        if let Some(since) = extra_since {
+            if let Ok(sd) = DateTime::parse_from_rfc3339(since) {
+                let el = now.signed_duration_since(sd.with_timezone(&Local)).num_seconds().max(0);
+                live_extra_secs += (extra_controllers as f64) * (el as f64);
+            }
+        }
+    }
+    let extra_fee = (live_extra_secs / 3600.0) * pricing.extra_controller_per_hour;
     (mins, secs, fee, extra_fee, is_paused)
 }
 
@@ -101,7 +112,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 let (id, name, stype, group, status, customer, start, paused_at, total_paused, extra_controllers) = r;
                 let eff_status: String = if status == "active" && paused_at.is_some() { "paused".into() } else { status.clone() };
                 let elapsed_min = if status == "active" {
-                    let (m, _s, _f, _x, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused, 0);
+                    let (m, _s, _f, _x, _p) = session_fee(conn, &id, "card", start.as_deref().unwrap_or(""), paused_at.as_deref(), total_paused, 0, 0.0, None);
                     m
                 } else {
                     0
@@ -129,7 +140,7 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
     let mut sessions: Vec<serde_json::Value> = Vec::new();
     let mut live_estimate = 0.0f64;
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT station_id, station_name, customer, start_time, rate_type, paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions",
+        "SELECT station_id, station_name, customer, start_time, rate_type, paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0), COALESCE(extra_secs,0), extra_since FROM active_sessions",
     ) {
         if let Ok(rows) = stmt.query_map([], |row| {
             Ok((
@@ -141,12 +152,14 @@ pub fn overview(conn: &Connection) -> serde_json::Value {
                 row.get::<_, Option<String>>(5)?,
                 row.get::<_, i64>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, f64>(8)?,
+                row.get::<_, Option<String>>(9)?,
             ))
         }) {
             for r in rows.flatten() {
-                let (station_id, station_name, customer, start_time, rate_type, paused_at, total_paused, extra_controllers) = r;
+                let (station_id, station_name, customer, start_time, rate_type, paused_at, total_paused, extra_controllers, extra_secs, extra_since) = r;
                 let (mins, _secs, fee, extra_fee, is_paused) =
-                    session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused, extra_controllers);
+                    session_fee(conn, &station_id, &rate_type, &start_time, paused_at.as_deref(), total_paused, extra_controllers, extra_secs, extra_since.as_deref());
                 live_estimate += fee + extra_fee;
                 let drink_total = drink_totals.get(&station_id).copied().unwrap_or(0.0);
                 sessions.push(json!({
@@ -447,7 +460,7 @@ mod tests {
         let conn = test_conn();
         let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
         let paused = (Local::now() - chrono::Duration::minutes(20)).to_rfc3339();
-        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, Some(&paused), 0, 0);
+        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, Some(&paused), 0, 0, 0.0, None);
         assert!(is_paused);
         assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
     }
@@ -456,7 +469,7 @@ mod tests {
     fn resumed_session_subtracts_total_paused() {
         let conn = test_conn();
         let start = (Local::now() - chrono::Duration::minutes(50)).to_rfc3339();
-        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, None, 1200, 0);
+        let (mins, _s, _f, _x, is_paused) = session_fee(&conn, "pc-test", "nakit", &start, None, 1200, 0, 0.0, None);
         assert!(!is_paused);
         assert!(mins >= 28 && mins <= 32, "beklenen ~30 dk, gelen {}", mins);
     }
@@ -465,10 +478,21 @@ mod tests {
     fn extra_controllers_add_hourly_fee_per_minute() {
         let conn = test_conn();
         let start = (Local::now() - chrono::Duration::minutes(30)).to_rfc3339();
-        let (mins, _s, _f, extra_fee, _p) = session_fee(&conn, "pc-test", "nakit", &start, None, 0, 1);
+        let (mins, _s, _f, extra_fee, _p) = session_fee(&conn, "pc-test", "nakit", &start, None, 0, 1, 0.0, Some(&start));
         assert!(mins >= 29 && mins <= 31, "beklenen ~30 dk, gelen {}", mins);
         let expected = 75.0 / 60.0 * mins as f64;
         assert!((extra_fee - expected).abs() < 0.01, "beklenen ~{:.2}, gelen {:.2}", expected, extra_fee);
+    }
+
+    #[test]
+    fn extra_controllers_cancelled_mid_session_accrue_only_until_cancel() {
+        let conn = test_conn();
+        let start = (Local::now() - chrono::Duration::minutes(60)).to_rfc3339();
+        // 1 ekstra kol ilk 30 dk boyunca aktifti, sonra iptal edildi (extra_secs=1800 birikti)
+        let (mins, _s, _f, extra_fee, _p) = session_fee(&conn, "pc-test", "nakit", &start, None, 0, 0, 1800.0, None);
+        assert!(mins >= 59 && mins <= 61, "beklenen ~60 dk, gelen {}", mins);
+        let expected = 75.0 / 3600.0 * 1800.0;
+        assert!((extra_fee - expected).abs() < 0.01, "beklenen {:.2}, gelen {:.2}", expected, extra_fee);
     }
 
     #[test]

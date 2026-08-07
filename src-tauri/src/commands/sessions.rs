@@ -27,8 +27,29 @@ fn map_active(row: &rusqlite::Row) -> rusqlite::Result<ActiveSession> {
         station_id: row.get(0)?, station_name: row.get(1)?, customer: row.get(2)?,
         start_time: row.get(3)?, rate_type: row.get(4)?, notes: row.get(5)?,
         tags: row.get(6)?, paused_at: row.get(7)?, total_paused_seconds: row.get(8)?,
-        extra_controllers: row.get(9)?,
+        extra_controllers: row.get(9)?, extra_secs: row.get(10)?, extra_since: row.get(11)?,
     })
+}
+
+const ACTIVE_SELECT: &str = "SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0), COALESCE(extra_secs,0), extra_since FROM active_sessions";
+
+fn accrue_extra(conn: &rusqlite::Connection, station_id: &str, at: &DateTime<Local>) -> Result<(), String> {
+    let (count, since): (i64, Option<String>) = conn.query_row(
+        "SELECT COALESCE(extra_controllers,0), extra_since FROM active_sessions WHERE station_id = ?1",
+        params![station_id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|_| "Oturum bulunamadı")?;
+    if count > 0 {
+        if let Some(s) = since {
+            if let Ok(sd) = DateTime::parse_from_rfc3339(&s) {
+                let elapsed = at.signed_duration_since(sd.with_timezone(&Local)).num_seconds().max(0);
+                if elapsed > 0 {
+                    let cur: f64 = conn.query_row("SELECT COALESCE(extra_secs,0) FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
+                    conn.execute("UPDATE active_sessions SET extra_secs = ?1, extra_since = ?2 WHERE station_id = ?3",
+                        params![cur + (count as f64) * (elapsed as f64), at.to_rfc3339(), station_id]).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -39,13 +60,16 @@ pub fn start_session(station_id: String, customer: String, rate_type: String, no
     let (status, st_name): (String, String) = conn.query_row("SELECT status, name FROM stations WHERE id = ?1", params![station_id], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| "İstasyon bulunamadı")?;
     if status == "active" { return Err("İstasyon zaten aktif".into()); }
     conn.execute("UPDATE stations SET status = 'active' WHERE id = ?1", params![station_id]).map_err(|e| e.to_string())?;
+    let now_str = Local::now().to_rfc3339();
+    let extra_since: Option<String> = if extra > 0 { Some(now_str.clone()) } else { None };
     let session = ActiveSession {
         station_id: station_id.clone(), station_name: st_name, customer,
-        start_time: Local::now().to_rfc3339(), rate_type, notes, tags,
+        start_time: now_str.clone(), rate_type, notes, tags,
         paused_at: None, total_paused_seconds: 0, extra_controllers: extra,
+        extra_secs: 0.0, extra_since: extra_since.clone(),
     };
-    conn.execute("INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type, notes, tags, paused_at, total_paused_seconds, extra_controllers) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, 0, ?8)",
-        params![session.station_id, session.station_name, session.customer, session.start_time, session.rate_type, session.notes, session.tags, extra]).map_err(|e| e.to_string())?;
+    conn.execute("INSERT INTO active_sessions (station_id, station_name, customer, start_time, rate_type, notes, tags, paused_at, total_paused_seconds, extra_controllers, extra_secs, extra_since) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, 0, ?8, 0, ?9)",
+        params![session.station_id, session.station_name, session.customer, session.start_time, session.rate_type, session.notes, session.tags, extra, extra_since]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "start_session", "sessions", format!("{} (ekstra kol: {})", session.station_name, extra).as_str());
     Ok(session)
 }
@@ -56,7 +80,9 @@ pub fn pause_session(station_id: String, state: State<AppState>) -> Result<(), S
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     let p: Option<String> = conn.query_row("SELECT paused_at FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).map_err(|_| "Oturum bulunamadı")?;
     if p.is_some() { return Err("Zaten duraklatılmış".into()); }
-    conn.execute("UPDATE active_sessions SET paused_at = ?1 WHERE station_id = ?2", params![Local::now().to_rfc3339(), station_id]).map_err(|e| e.to_string())?;
+    let now = Local::now();
+    accrue_extra(&conn, &station_id, &now)?;
+    conn.execute("UPDATE active_sessions SET paused_at = ?1, extra_since = NULL WHERE station_id = ?2", params![now.to_rfc3339(), station_id]).map_err(|e| e.to_string())?;
     log_audit_conn(&conn, &state, "pause_session", "sessions", &station_id);
     Ok(())
 }
@@ -72,7 +98,10 @@ pub fn resume_session(station_id: String, state: State<AppState>) -> Result<(), 
             let pause_dt: DateTime<Local> = DateTime::parse_from_rfc3339(&paused).map_err(|e| e.to_string())?.with_timezone(&Local);
             let secs = Local::now().signed_duration_since(pause_dt).num_seconds().max(0);
             let cur: i64 = conn.query_row("SELECT total_paused_seconds FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0);
-            conn.execute("UPDATE active_sessions SET paused_at = NULL, total_paused_seconds = ?1 WHERE station_id = ?2", params![cur + secs, station_id]).map_err(|e| e.to_string())?;
+            let extra_count: i64 = conn.query_row("SELECT COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0);
+            let now = Local::now().to_rfc3339();
+            let extra_since: Option<String> = if extra_count > 0 { Some(now.clone()) } else { None };
+            conn.execute("UPDATE active_sessions SET paused_at = NULL, total_paused_seconds = ?1, extra_since = ?2 WHERE station_id = ?3", params![cur + secs, extra_since, station_id]).map_err(|e| e.to_string())?;
             log_audit_conn(&conn, &state, "resume_session", "sessions", &station_id);
             Ok(())
         }
@@ -91,7 +120,7 @@ pub fn update_session_notes(station_id: String, notes: String, tags: String, sta
 #[tauri::command]
 pub fn get_active_sessions(state: State<AppState>) -> Result<Vec<ActiveSession>, String> {
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    let mut stmt = conn.prepare("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(ACTIVE_SELECT).map_err(|e| e.to_string())?;
     let sessions: Vec<ActiveSession> = stmt.query_map([], map_active).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
     Ok(sessions)
 }
@@ -103,7 +132,8 @@ pub fn update_session_start_time(station_id: String, new_start_time: String, sta
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
     conn.execute("UPDATE active_sessions SET start_time = ?1 WHERE station_id = ?2", params![new_start_time, station_id]).map_err(|_| "Oturum bulunamadı")?;
     log_audit_conn(&conn, &state, "update_session_start_time", "sessions", &station_id);
-    conn.query_row("SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1",
+    let q = format!("{} WHERE station_id = ?1", ACTIVE_SELECT);
+    conn.query_row(&q,
         params![station_id], map_active).map_err(|_| "Oturum bulunamadı".into())
 }
 
@@ -112,7 +142,10 @@ pub fn update_session_extra_controllers(station_id: String, extra_controllers: i
     require_login(&state)?;
     let extra = extra_controllers.max(0);
     let conn = state.db.lock().map_err(|e| format!("DB kilitlenemedi: {}", e))?;
-    conn.execute("UPDATE active_sessions SET extra_controllers = ?1 WHERE station_id = ?2", params![extra, station_id]).map_err(|_| "Oturum bulunamadı")?;
+    let now = Local::now();
+    accrue_extra(&conn, &station_id, &now)?;
+    let extra_since: Option<String> = if extra > 0 { Some(now.to_rfc3339()) } else { None };
+    conn.execute("UPDATE active_sessions SET extra_controllers = ?1, extra_since = ?2 WHERE station_id = ?3", params![extra, extra_since, station_id]).map_err(|_| "Oturum bulunamadı")?;
     log_audit_conn(&conn, &state, "update_session_extra_controllers", "sessions", format!("{} ekstra kol: {}", station_id, extra).as_str());
     Ok(())
 }
@@ -135,6 +168,9 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
         DateTime::parse_from_rfc3339(c).map_err(|e| format!("Geçersiz tarih: {}", e))?.with_timezone(&Local)
     } else { Local::now() };
 
+    accrue_extra(&conn, &station_id, &end)?;
+    let extra_secs: f64 = conn.query_row("SELECT COALESCE(extra_secs,0) FROM active_sessions WHERE station_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
+
     let total_dur = end.signed_duration_since(start);
     let mut eff_secs = total_dur.num_seconds().max(0);
     if let Some(ref p) = paused_at {
@@ -155,8 +191,7 @@ pub fn end_session(station_id: String, payment_method: String, custom_end_time: 
 
     let drink_total: f64 = conn.query_row("SELECT COALESCE(SUM(total), 0) FROM drink_orders WHERE session_id = ?1", params![station_id], |r| r.get(0)).unwrap_or(0.0);
     let base_fee = (rounded_mins as f64 * per_min).max(pricing.min_charge);
-    let extra_per_min = pricing.extra_controller_per_hour / 60.0;
-    let extra_fee = extra_controllers.max(0) as f64 * extra_per_min * (rounded_mins as f64);
+    let extra_fee = (extra_secs / 3600.0) * pricing.extra_controller_per_hour;
 
     let mut total = base_fee + extra_fee + drink_total;
 
@@ -249,8 +284,8 @@ fn merge_pos_note(base_notes: &str, fee_note: &str, pos_reference: Option<&str>)
 }
 
 fn load_active(conn: &rusqlite::Connection, station_id: &str) -> Result<ActiveSession, String> {
-    conn.query_row(
-        "SELECT station_id, station_name, customer, start_time, rate_type, COALESCE(notes,''), COALESCE(tags,''), paused_at, COALESCE(total_paused_seconds,0), COALESCE(extra_controllers,0) FROM active_sessions WHERE station_id = ?1",
+    let q = format!("{} WHERE station_id = ?1", ACTIVE_SELECT);
+    conn.query_row(&q,
         params![station_id], map_active,
     ).map_err(|_| "Aktif oturum bulunamadı".into())
 }

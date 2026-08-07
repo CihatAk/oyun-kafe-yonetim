@@ -23,6 +23,8 @@ pub struct ActiveSession {
     pub paused_at: Option<String>,
     pub total_paused_seconds: i64,
     pub extra_controllers: i64,
+    pub extra_secs: f64,
+    pub extra_since: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -119,6 +121,8 @@ pub struct StockReport {
 pub struct PricingConfig {
     pub cash_per_minute: f64,
     pub card_per_minute: f64,
+    pub vr_cash_per_minute: f64,
+    pub vr_card_per_minute: f64,
     pub min_charge: f64,
     pub round_minutes: i64,
     pub extra_controller_per_hour: f64,
@@ -131,6 +135,8 @@ impl Default for PricingConfig {
         PricingConfig {
             cash_per_minute: 4.20,
             card_per_minute: 5.00,
+            vr_cash_per_minute: 6.00,
+            vr_card_per_minute: 7.00,
             min_charge: 0.0,
             round_minutes: 1,
             extra_controller_per_hour: 75.00,

@@ -411,8 +411,7 @@
                     <div class="px-6 py-4 border-b border-slate-700/50">
                         <h3 class="text-lg font-semibold flex items-center gap-2">⏱️ Süre & Kurallar</h3>
                         <p class="text-xs text-slate-500 mt-0.5">Oturum ücretlendirme kuralları</p>
-                    </div>
-                    <div class="p-6 space-y-4">
+                    </div>                    <div class="p-6 space-y-4">
                         <div>
                             <label class="block text-slate-300 text-sm font-medium mb-2">Minimum Ücret (₺)</label>
                             <input type="number" id="price-min" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition" placeholder="0">
@@ -441,6 +440,39 @@
                         <div class="flex gap-3">
                             <button onclick="savePricing()" class="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-semibold transition">💾 Ayarları Kaydet</button>
                             <button onclick="resetPricingDefaults()" class="py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition" title="Varsayılanlara dön">♻️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold flex items-center gap-2">🕹️ VR Tarifeleri</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">VR istasyonları için ayrı dakikalık ücretler</p>
+                    </div>
+                    <span class="text-[11px] text-slate-500">VR istasyon kartında "🕹️ VR İstasyon" etiketi ile gösterilir</span>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
+                            <label class="block text-purple-300 text-sm font-medium mb-2">🕹️ VR Nakit (₺/dk)</label>
+                            <input type="number" id="price-vr-cash" step="0.01" oninput="updatePricePreview()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition" placeholder="6.00">
+                            <p class="text-xs text-slate-500 mt-1.5">VR istasyonunda nakit ödemeli oturumlarda her dakika için ücret</p>
+                        </div>
+                        <div class="bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl p-4">
+                            <label class="block text-fuchsia-300 text-sm font-medium mb-2">🕹️ VR Kart (₺/dk)</label>
+                            <input type="number" id="price-vr-card" step="0.01" oninput="updatePricePreview()" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500 transition" placeholder="7.00">
+                            <p class="text-xs text-slate-500 mt-1.5">VR istasyonunda kart ödemeli oturumlarda her dakika için ücret</p>
+                        </div>
+                    </div>
+                    <div class="glass rounded-xl border border-slate-700/50">
+                        <div class="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+                            <span class="text-sm font-medium text-slate-300">🕹️ VR Canlı Tahmini Ücret</span>
+                            <span class="text-[11px] text-slate-500">Yuvarlama ve minimum ücret hesaba katılır</span>
+                        </div>
+                        <div class="p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="price-vr-preview-row"></div>
                         </div>
                     </div>
                 </div>
@@ -963,6 +995,14 @@
                     <label class="block text-slate-300 text-sm font-medium mb-2">Grup</label>
                     <input type="text" id="new-station-group" placeholder="ör: PC Odası" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
                 </div>
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">İstasyon Tipi</label>
+                    <select id="new-station-type" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                        <option value="standard">🖥️ Standart İstasyon</option>
+                        <option value="vr">🕹️ VR İstasyon</option>
+                    </select>
+                    <p class="text-xs text-slate-500 mt-1.5">VR istasyonlarında ayrı VR tarifesi uygulanır (Fiyatlandırma sekmesi).</p>
+                </div>
                 <div class="flex gap-3 mt-4">
                     <button onclick="closeModal('modal-add-station')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">İptal</button>
                     <button onclick="confirmAddStation()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition">Ekle</button>
@@ -987,6 +1027,14 @@
                 <div>
                     <label class="block text-slate-300 text-sm font-medium mb-2">Grup</label>
                     <input type="text" id="edit-station-group" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">İstasyon Tipi</label>
+                    <select id="edit-station-type" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                        <option value="standard">🖥️ Standart İstasyon</option>
+                        <option value="vr">🕹️ VR İstasyon</option>
+                    </select>
+                    <p class="text-xs text-slate-500 mt-1.5">VR istasyonlarında ayrı VR tarifesi uygulanır (Fiyatlandırma sekmesi).</p>
                 </div>
                 <div class="bg-slate-800/30 rounded-xl p-4 space-y-1 text-sm" id="edit-station-stats"></div>
                 <div class="flex gap-3 mt-4">
@@ -1707,7 +1755,7 @@
                         iconBtns += `<button onclick="openNotesModal('${st.id}', '${esc(sess.notes || '')}', '${esc(sess.tags || '')}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Notlar">📝</button>`;
                         iconBtns += `<button onclick="openEditStartTimeModal('${st.id}', '${esc(st.name)}', '${sess.start_time}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="Saat Düzenle">🕐</button>`;
                     } else if (isAdmin) {
-                        iconBtns += `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue})" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="İstasyon Düzenle">✏️</button>`;
+                        iconBtns += `<button onclick="openEditStationModal('${st.id}', '${esc(st.name)}', '${esc(st.group_name)}', ${st.total_sessions}, ${st.total_revenue}, '${esc(st.station_type || 'standard')}')" class="w-10 py-2.5 bg-slate-600/80 hover:bg-slate-500 rounded-xl text-sm transition" title="İstasyon Düzenle">✏️</button>`;
                     }
 
                     const idleHint = isActive ? '' : '<div class="text-xs text-slate-500 mt-3">Boş istasyon — oturum başlatabilirsiniz</div>';
@@ -1722,7 +1770,7 @@
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <h3 class="text-base font-bold text-white truncate">${escHtml(st.name)}</h3>
-                                <p class="text-[11px] text-slate-500 mt-0.5">${st.group_name ? '📁 ' + escHtml(st.group_name) : '🖥️ Standart İstasyon'}</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">${st.group_name ? '📁 ' + escHtml(st.group_name) : (st.station_type === 'vr' ? '🕹️ VR İstasyon' : '🖥️ Standart İstasyon')}</p>
                             </div>
                             ${statusPill}
                         </div>
@@ -2295,14 +2343,20 @@
                     const diffMins = Math.max(0, Math.floor((end - start) / 60000));
                     document.getElementById('end-duration').textContent = diffMins + ' dk';
                     const pricing = await invoke('get_pricing');
-                    const perMinute = (payment === 'kart') ? pricing.card_per_minute : pricing.cash_per_minute;
+                    const fee = await invoke('calculate_live_fee', { stationId: endSessionData.stationId, paymentMethod: payment });
+                    const isVr = fee.station_type === 'vr';
+                    const perMinute = (payment === 'kart') ? (isVr ? pricing.vr_card_per_minute : pricing.card_per_minute) : (isVr ? pricing.vr_cash_per_minute : pricing.cash_per_minute);
                     const roundMinutes = pricing.round_minutes || 1;
                     const roundedMins = Math.ceil(diffMins / roundMinutes) * roundMinutes;
                     baseFee = Math.max(roundedMins * perMinute, pricing.min_charge || 0);
-                    const fee = await invoke('calculate_live_fee', { stationId: endSessionData.stationId, paymentMethod: payment });
                     drinkTotal = fee.drink_total;
                     extraControllers = fee.extra_controllers || 0;
-                    extraFee = extraControllers * ((pricing.extra_controller_per_hour || 75) / 60) * roundedMins;
+                    let extraSecs = fee.extra_secs || 0;
+                    if (extraControllers > 0 && fee.extra_since) {
+                        const since = new Date(fee.extra_since);
+                        if (end > since) extraSecs += extraControllers * ((end - since) / 1000);
+                    }
+                    extraFee = (extraSecs / 3600) * (pricing.extra_controller_per_hour || 75);
                 } else {
                     const fee = await invoke('calculate_live_fee', { stationId: endSessionData.stationId, paymentMethod: payment });
                     baseFee = fee.current_fee;
@@ -2321,7 +2375,7 @@
             total = Math.max(0, total - discount);
             if (discount > 0) note = 'Manuel indirim: ₺' + discount.toFixed(2) + (discountReason ? ' (' + discountReason + ')' : '');
             document.getElementById('end-session-fee').textContent = '₺' + sessionFee.toFixed(2);
-            document.getElementById('end-extra-fee').textContent = extraControllers > 0 ? '🎮 ' + extraControllers + ' × ₺' + extraFee.toFixed(2) : '₺0.00';
+            document.getElementById('end-extra-fee').textContent = extraFee > 0 ? '🎮 ₺' + extraFee.toFixed(2) + (extraControllers > 0 ? ' (' + extraControllers + ' kol aktif)' : ' (kullanılan süre)') : '₺0.00';
             document.getElementById('end-drink-total').textContent = '₺' + drinkTotal.toFixed(2);
             document.getElementById('end-discount-display').textContent = discount > 0 ? '-₺' + discount.toFixed(2) : '₺0.00';
             document.getElementById('end-total').textContent = '₺' + total.toFixed(2);
@@ -2500,6 +2554,7 @@
         function openAddStationModal() {
             document.getElementById('new-station-name').value = '';
             document.getElementById('new-station-group').value = '';
+            document.getElementById('new-station-type').value = 'standard';
             openModal('modal-add-station');
             setTimeout(() => document.getElementById('new-station-name').focus(), 100);
         }
@@ -2507,14 +2562,16 @@
         async function confirmAddStation() {
             const name = document.getElementById('new-station-name').value.trim();
             const group = document.getElementById('new-station-group').value.trim();
+            const stationType = document.getElementById('new-station-type').value;
             if (!name) { showToast('İstasyon adı gerekli!', 'error'); return; }
-            try { await invoke('add_station', { name, groupName: group }); closeModal('modal-add-station'); showToast('İstasyon eklendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('add_station', { name, groupName: group, stationType }); closeModal('modal-add-station'); showToast('İstasyon eklendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
-        function openEditStationModal(id, name, group, totalSessions, totalRevenue) {
+        function openEditStationModal(id, name, group, totalSessions, totalRevenue, stationType) {
             document.getElementById('edit-station-id').value = id;
             document.getElementById('edit-station-name').value = name.replace(/\\'/g, "'");
             document.getElementById('edit-station-group').value = (group || '').replace(/\\'/g, "'");
+            document.getElementById('edit-station-type').value = (stationType || 'standard');
             document.getElementById('edit-station-stats').innerHTML = `<div>📊 Toplam Oturum: <span class="text-white font-semibold">${totalSessions}</span></div><div>💰 Toplam Gelir: <span class="text-amber-400 font-semibold">₺${totalRevenue.toFixed(2)}</span></div>`;
             openModal('modal-edit-station');
         }
@@ -2523,8 +2580,9 @@
             const stationId = document.getElementById('edit-station-id').value;
             const name = document.getElementById('edit-station-name').value.trim();
             const group = document.getElementById('edit-station-group').value.trim();
+            const stationType = document.getElementById('edit-station-type').value;
             if (!name) { showToast('İstasyon adı gerekli!', 'error'); return; }
-            try { await invoke('update_station', { stationId, name, groupName: group }); closeModal('modal-edit-station'); showToast('İstasyon güncellendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
+            try { await invoke('update_station', { stationId, name, groupName: group, stationType }); closeModal('modal-edit-station'); showToast('İstasyon güncellendi!'); loadStations(); } catch (e) { showToast('Hata: ' + e, 'error'); }
         }
 
         // ─── İçecek Ekleme/Düzenleme ───────────────────────
@@ -2652,6 +2710,8 @@
                 const c = await invoke('get_pricing');
                 document.getElementById('price-cash').value = c.cash_per_minute;
                 document.getElementById('price-card').value = c.card_per_minute;
+                document.getElementById('price-vr-cash').value = c.vr_cash_per_minute;
+                document.getElementById('price-vr-card').value = c.vr_card_per_minute;
                 document.getElementById('price-min').value = c.min_charge;
                 document.getElementById('price-round').value = c.round_minutes;
                 document.getElementById('price-max-session').value = c.max_session_minutes;
@@ -2664,34 +2724,42 @@
         function updatePricePreview() {
             var cash = parseFloat(document.getElementById('price-cash').value);
             var card = parseFloat(document.getElementById('price-card').value);
+            var vrCash = parseFloat(document.getElementById('price-vr-cash').value);
+            var vrCard = parseFloat(document.getElementById('price-vr-card').value);
             if (isNaN(cash)) cash = 4.20;
             if (isNaN(card)) card = 5.00;
+            if (isNaN(vrCash)) vrCash = 6.00;
+            if (isNaN(vrCard)) vrCard = 7.00;
             var row = document.getElementById('price-preview-row');
-            if (!row) return;
-            var mk = function (label, color, rate, emoji) {
-                var round = parseInt(document.getElementById('price-round').value) || 1;
-                var minChg = parseFloat(document.getElementById('price-min').value) || 0;
-                var f = function (mins) {
-                    var chunks = Math.ceil(mins / round);
-                    return Math.max(chunks * round * rate, minChg).toFixed(2);
-                };
-                return '<div class="rounded-xl px-4 py-3 text-center border ' + color.replace('text-', 'bg-').replace(/\d+/g, '') + '/10 border-slate-700/40">' +
-                    '<div class="text-[11px] text-slate-500 uppercase tracking-wider mb-1">' + emoji + ' ' + label + '</div>' +
-                    '<div class="text-xl font-bold ' + color + '">₺' + f(60) + '</div>' +
-                    '<div class="text-[11px] text-slate-500 mt-1">1 saatlik</div>' +
-                    '<div class="flex justify-center gap-3 mt-1.5 text-[11px] text-slate-400">' +
-                    '<span>2 saat: <b class="text-slate-200">₺' + f(120) + '</b></span>' +
-                    '<span>4 saat: <b class="text-slate-200">₺' + f(240) + '</b></span>' +
-                    '</div></div>';
+            var vrRow = document.getElementById('price-vr-preview-row');
+            if (row) row.innerHTML = mkCard('Nakit', 'text-emerald-300', cash, '💵') + mkCard('Kart', 'text-blue-300', card, '💳');
+            if (vrRow) vrRow.innerHTML = mkCard('VR Nakit', 'text-purple-300', vrCash, '🕹️') + mkCard('VR Kart', 'text-fuchsia-300', vrCard, '🕹️');
+        }
+
+        function mkCard(label, color, rate, emoji) {
+            var round = parseInt(document.getElementById('price-round').value) || 1;
+            var minChg = parseFloat(document.getElementById('price-min').value) || 0;
+            var f = function (mins) {
+                var chunks = Math.ceil(mins / round);
+                return Math.max(chunks * round * rate, minChg).toFixed(2);
             };
-            row.innerHTML = mk('Nakit', 'text-emerald-300', cash, '💵') + mk('Kart', 'text-blue-300', card, '💳');
+            return '<div class="rounded-xl px-4 py-3 text-center border ' + color.replace('text-', 'bg-').replace(/\d+/g, '') + '/10 border-slate-700/40">' +
+                '<div class="text-[11px] text-slate-500 uppercase tracking-wider mb-1">' + emoji + ' ' + label + '</div>' +
+                '<div class="text-xl font-bold ' + color + '">₺' + f(60) + '</div>' +
+                '<div class="text-[11px] text-slate-500 mt-1">1 saatlik</div>' +
+                '<div class="flex justify-center gap-3 mt-1.5 text-[11px] text-slate-400">' +
+                '<span>2 saat: <b class="text-slate-200">₺' + f(120) + '</b></span>' +
+                '<span>4 saat: <b class="text-slate-200">₺' + f(240) + '</b></span>' +
+                '</div></div>';
         }
 
         function resetPricingDefaults() {
             if (!confirm('Tüm fiyat ayarları varsayılan değerlere dönecek. Devam edilsin mi?')) return;
-            var d = { cash_per_minute: 4.20, card_per_minute: 5.00, min_charge: 0, round_minutes: 1, max_session_minutes: 0, warning_before_minutes: 5, extra_controller_per_hour: 75 };
+            var d = { cash_per_minute: 4.20, card_per_minute: 5.00, vr_cash_per_minute: 6.00, vr_card_per_minute: 7.00, min_charge: 0, round_minutes: 1, max_session_minutes: 0, warning_before_minutes: 5, extra_controller_per_hour: 75 };
             document.getElementById('price-cash').value = d.cash_per_minute;
             document.getElementById('price-card').value = d.card_per_minute;
+            document.getElementById('price-vr-cash').value = d.vr_cash_per_minute;
+            document.getElementById('price-vr-card').value = d.vr_card_per_minute;
             document.getElementById('price-min').value = d.min_charge;
             document.getElementById('price-round').value = d.round_minutes;
             document.getElementById('price-max-session').value = d.max_session_minutes;
@@ -2705,6 +2773,8 @@
             const config = {
                 cash_per_minute: parseFloat(document.getElementById('price-cash').value) || 4.20,
                 card_per_minute: parseFloat(document.getElementById('price-card').value) || 5.00,
+                vr_cash_per_minute: parseFloat(document.getElementById('price-vr-cash').value) || 6.00,
+                vr_card_per_minute: parseFloat(document.getElementById('price-vr-card').value) || 7.00,
                 min_charge: parseFloat(document.getElementById('price-min').value) || 0,
                 round_minutes: parseInt(document.getElementById('price-round').value) || 1,
                 max_session_minutes: parseInt(document.getElementById('price-max-session').value) || 0,
@@ -3105,7 +3175,7 @@
             const extraControllers = Number(s.extra_controllers || 0);
             const extraFee = Number(s.extra_fee || 0);
             const sessionFee = Number(s.total - (s.drink_total || 0) - extraFee).toFixed(2);
-            const extraLine = extraControllers > 0 ? '<div class="flex justify-between"><span>Ekstra Kumanda x' + extraControllers + '</span><span>₺' + extraFee.toFixed(2) + '</span></div>' : '';
+            const extraLine = extraFee > 0 ? '<div class="flex justify-between"><span>Ekstra Kumanda' + (extraControllers > 0 ? ' x' + extraControllers : ' (kullanılan süre)') + '</span><span>₺' + extraFee.toFixed(2) + '</span></div>' : '';
             const hasDiscount = Number(s.discount) > 0;
             const discLine = hasDiscount ? '<div class="flex justify-between text-sm text-gray-600"><span>İndirim</span><span>-₺' + Number(s.discount).toFixed(2) + '</span></div>' : '';
             document.getElementById('print-area').innerHTML =

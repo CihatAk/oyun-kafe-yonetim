@@ -115,6 +115,8 @@ pub fn migrate_db(conn: &Connection) {
         ("active_sessions", "paused_at TEXT"),
         ("active_sessions", "total_paused_seconds INTEGER NOT NULL DEFAULT 0"),
         ("active_sessions", "extra_controllers INTEGER NOT NULL DEFAULT 0"),
+        ("active_sessions", "extra_secs REAL NOT NULL DEFAULT 0"),
+        ("active_sessions", "extra_since TEXT"),
         ("stations", "group_name TEXT NOT NULL DEFAULT ''"),
         ("drinks", "category TEXT NOT NULL DEFAULT 'icecek'"),
         ("drinks", "stock INTEGER NOT NULL DEFAULT -1"),
@@ -267,6 +269,8 @@ impl AppState {
         PricingConfig {
             cash_per_minute: g("cash_per_minute").and_then(|v| v.parse().ok()).unwrap_or(4.20),
             card_per_minute: g("card_per_minute").and_then(|v| v.parse().ok()).unwrap_or(5.00),
+            vr_cash_per_minute: g("vr_cash_per_minute").and_then(|v| v.parse().ok()).unwrap_or(6.00),
+            vr_card_per_minute: g("vr_card_per_minute").and_then(|v| v.parse().ok()).unwrap_or(7.00),
             min_charge: g("min_charge").and_then(|v| v.parse().ok()).unwrap_or(0.0),
             round_minutes: g("round_minutes").and_then(|v| v.parse().ok()).unwrap_or(1),
             extra_controller_per_hour: g("extra_controller_per_hour").and_then(|v| v.parse().ok()).unwrap_or(75.00),
@@ -276,8 +280,13 @@ impl AppState {
     }
 
     pub fn get_effective_rate(&self, station_type: &str, rate_type: &str, pricing: &PricingConfig) -> f64 {
-        let _ = station_type;
-        if rate_type == "nakit" { pricing.cash_per_minute }
-        else { pricing.card_per_minute }
+        let is_vr = station_type == "vr";
+        let (cash, card) = if is_vr {
+            (pricing.vr_cash_per_minute, pricing.vr_card_per_minute)
+        } else {
+            (pricing.cash_per_minute, pricing.card_per_minute)
+        };
+        if rate_type == "nakit" { cash }
+        else { card }
     }
 }
