@@ -81,15 +81,16 @@ Deno.serve(async (req) => {
       const body = await req.json().catch(() => ({}));
       const business_name = String(body.business_name || "İşletme").trim().slice(0, 80);
       const count = Math.min(Math.max(Number(body.count) || 1, 1), 100);
+      const expires_at = body.expires_at ? String(body.expires_at).trim() : null;
       const keys = [];
       for (let i = 0; i < count; i++) {
         const key = randomCode();
         const license_id = randomId();
         const { error: err } = await supabase
           .from("licenses")
-          .insert({ key, license_id, business_name, status: "available" });
+          .insert({ key, license_id, business_name, status: "available", expires_at });
         if (err) return error("Veritabanı hatası: " + err.message, 500);
-        keys.push({ key, license_id });
+        keys.push({ key, license_id, expires_at });
       }
       return ok({ keys });
     }
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
         business_name: data.business_name,
         machine_hash,
         issued_at: data.activated_at || activated_at,
-        expires_at: null,
+        expires_at: data.expires_at || null,
       };
       const token = await signToken(payload);
       return ok({ token, license_id: data.license_id });
